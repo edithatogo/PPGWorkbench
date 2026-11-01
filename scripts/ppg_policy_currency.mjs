@@ -45,9 +45,11 @@ const informative = (w) => w.length >= 3 && !general.has(w) && /[a-z]/.test(w);
 const phrases = (s) => {
   const words = norm(s).trim().split(" ");
   return [2, 3].flatMap((n) =>
-    words.slice(n - 1).map((_, i) => words.slice(i, i + n)).filter((part) =>
-      part.filter(informative).length >= 2
-    ).map((part) => part.join(" "))
+    Array.from({ length: Math.max(0, words.length - n + 1) }).map((_, i) =>
+      words.slice(i, i + n)
+    ).filter((part) => part.filter(informative).length >= 2).map((part) =>
+      part.join(" ")
+    )
   );
 };
 const index = new Map();
@@ -185,10 +187,15 @@ const read = async () => {
   let route = base +
     "/items?$select=Id,Title,GUID,CurrencyDisposition,CurrencyMatch,CurrencyPolicy,CurrencyOwner,CurrencyEvidence&$top=500";
   const rows = [];
+  const seen = new Set();
   while (route) {
+    if (seen.has(route)) throw Error("Repeated lead inventory page");
+    seen.add(route);
     const page = await c.item(route);
-    rows.push(...page.results);
-    route = page.__next;
+    const records = page.results ?? page.value;
+    if (!Array.isArray(records)) throw Error("Invalid lead inventory page");
+    rows.push(...records);
+    route = page.__next ?? page["@odata.nextLink"] ?? page["odata.nextLink"];
   }
   return rows;
 };
@@ -196,6 +203,9 @@ const comparable = (v) =>
   v?.Url ? JSON.stringify([v.Url, v.Description]) : v ?? null;
 const initial = await read(), desired = {}, changes = [];
 for (const r of initial) {
+  if (!r.GUID || Object.hasOwn(desired, r.GUID)) {
+    throw Error("Missing or duplicate lead identity");
+  }
   const want = project(r);
   desired[r.GUID] = want;
   const patch = {};
@@ -252,6 +262,12 @@ for (let i = 0; i < changes.length; i += 20) {
   if (i + 20 < changes.length) await new Promise((r) => setTimeout(r, 4000));
 }
 const rows = await read();
+const titles = new Map(initial.map((r) => [r.GUID, r.Title]));
+if (
+  rows.length !== titles.size ||
+  new Set(rows.map((r) => r.GUID)).size !== titles.size ||
+  rows.some((r) => !titles.has(r.GUID) || titles.get(r.GUID) !== r.Title)
+) throw Error("Lead inventory changed during refresh");
 for (const r of rows) {
   const expected = desired[r.GUID];
   if (
@@ -260,9 +276,6 @@ for (const r of rows) {
       comparable(v) !== comparable(r[k])
     )
   ) throw Error("Readback mismatch " + r.Id);
-}
-if (rows.length !== initial.length) {
-  throw Error("Inventory changed during refresh");
 }
 const url = (await c.get(view)).ServerRelativeUrl;
 fs.writeFileSync(
