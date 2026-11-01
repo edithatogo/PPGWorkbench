@@ -35,6 +35,7 @@ export async function coveragePage(c, send, reportPath, rows, prior) {
   if (!created && (!prior || hash(row.CanvasContent1) !== prior.bodyHash)) {
     throw Error("Reconcile existing coverage page before refresh");
   }
+  let expectedHash = prior?.bodyHash;
   if (created || prior.summary !== summary) {
     const control = JSON.stringify({
       controlType: 4,
@@ -48,7 +49,10 @@ export async function coveragePage(c, send, reportPath, rows, prior) {
         zoneId: randomUUID(),
       },
     }).replaceAll('"', "&quot;");
-    const href = new URL(reportPath, c.c.siteUrl).href.replaceAll("&", "&amp;")
+    const href = new URL(reportPath, c.c.siteUrl).pathname.replaceAll(
+      "&",
+      "&amp;",
+    )
       .replaceAll('"', "&quot;");
     const html =
       '<div><div data-sp-canvascontrol="" data-sp-canvasdataversion="1.0" data-sp-controldata="' +
@@ -63,10 +67,24 @@ export async function coveragePage(c, send, reportPath, rows, prior) {
       { etag: row.__metadata.etag },
     );
     const draft = await c.item(route);
-    if (!draft.CanvasContent1.includes(summary)) {
+    const decoded = draft.CanvasContent1.replaceAll("&#123;", "{").replaceAll(
+      "&#125;",
+      "}",
+    ).replaceAll("&#58;", ":");
+    if (
+      decoded !== html ||
+      Number(draft.__metadata.etag.replaceAll('"', "")) !==
+        Number(row.__metadata.etag.replaceAll('"', "")) + 1
+    ) {
       throw Error("Coverage readback mismatch");
     }
+    expectedHash = hash(draft.CanvasContent1);
     const state = await c.get(file + "?$select=CheckOutType");
+    const current = await c.item(route);
+    if (
+      current.__metadata.etag !== draft.__metadata.etag ||
+      hash(current.CanvasContent1) !== expectedHash
+    ) throw Error("Coverage draft changed before publication");
     await send(
       "coverage-publish-" + hash(draft.__metadata.etag + summary).slice(0, 20),
       file +
@@ -78,7 +96,7 @@ export async function coveragePage(c, send, reportPath, rows, prior) {
   }
   const saved = await c.item(route),
     published = await c.get(file + "?$select=Level,UIVersionLabel");
-  if (published.Level !== 1 || !saved.CanvasContent1.includes(summary)) {
+  if (published.Level !== 1 || hash(saved.CanvasContent1) !== expectedHash) {
     throw Error("Coverage publication incomplete");
   }
   return {
