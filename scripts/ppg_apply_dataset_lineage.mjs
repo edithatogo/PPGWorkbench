@@ -36,8 +36,12 @@ const fields = {
   WriteFlows: "Note",
   BindingStatus: "Text",
 };
-if (plan.fictionalRunReads?.length) fields.ObservedReadFlows = "Note";
 const schema = await c.all(base + "/fields?$select=InternalName,TypeAsString");
+if (
+  plan.fictionalRunReads?.length ||
+  schema.some((f) => f.InternalName === "ObservedReadFlows") ||
+  Object.values(prior).some((row) => Object.hasOwn(row, "ObservedReadFlows"))
+) fields.ObservedReadFlows = "Note";
 for (const [name, type] of Object.entries(fields)) {
   const existing = schema.find((f) => f.InternalName === name);
   if (existing && existing.TypeAsString !== type) {
@@ -137,7 +141,7 @@ function compare(rows, phase = "preflight") {
           "Existing catalogue value requires reconciliation " + r.Id + " " + k,
         );
       }
-      patch[k] = want[k];
+      patch[k] = want[k] ?? null;
     }
     if (Object.keys(patch).length) changes.push({ r, patch });
   }
