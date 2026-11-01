@@ -135,6 +135,9 @@ const fields = {
   CurrencyPolicy: "URL",
   CurrencyOwner: "Text",
   CurrencyDisposition: "Text",
+  CurrencyNoticeText: "Note",
+  CurrencyNoticeProvenance: "Note",
+  CurrencyReviewEvidence: "Note",
 };
 const schema = await c.all(base + "/fields?$select=InternalName,TypeAsString");
 for (const [k, t] of Object.entries(fields)) {
@@ -159,6 +162,8 @@ const viewFields = [
   "CurrencyOwner",
   "CurrencyEvidence",
   "CurrencyDisposition",
+  "CurrencyReviewEvidence",
+  "CurrencyNoticeProvenance",
 ];
 const title = "Policy currency review";
 if (!(await c.all(base + "/views")).some((v) => v.Title === title)) {
@@ -174,6 +179,21 @@ if (!(await c.all(base + "/views")).some((v) => v.Title === title)) {
       RowLimit: 100,
     },
   });
+}
+const reviewFieldsRoute = base +
+  "/views/getbytitle('Policy currency review')/ViewFields";
+const existingReviewColumns = await c.get(reviewFieldsRoute);
+for (const k of ["CurrencyReviewEvidence", "CurrencyNoticeProvenance"]) {
+  if (
+    !(existingReviewColumns.Items ?? existingReviewColumns.value ?? [])
+      .includes(k)
+  ) {
+    await send(
+      "review-evidence-column-" + k.toLowerCase(),
+      reviewFieldsRoute + "/addviewfield('" + k + "')",
+      {},
+    );
+  }
 }
 const view = base + "/views/getbytitle('Policy currency review')",
   cols = await c.get(view + "/ViewFields");

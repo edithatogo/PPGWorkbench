@@ -22,7 +22,7 @@ def build(seed, bindings):
             "parameters":parameters}}
     previous=None
     for key,title,fields in [
-        ("leads","PPG Source Update Leads","Id,Title,CurrencyMatch,CurrencyPolicy,CurrencyOwner,CurrencyEvidence,CurrencyDisposition"),
+        ("leads","PPG Source Update Leads","Id,Title,ObservationJSON,CurrencyNoticeText,CurrencyNoticeProvenance,CurrencyMatch,CurrencyPolicy,CurrencyOwner,CurrencyEvidence,CurrencyDisposition"),
         ("policies","PPG Catalogue","Id,DocumentUID,sourceDocumentId,sourceTitle,sourceCustodian"),
         ("relationships","PPG Document Relationships","FromDocumentUID,ToDocumentUID,RelationshipType,ReviewState")]:
         uri=f"_api/web/lists/getbytitle('{title}')/items?$select={fields}&$orderby=Id&$top=1500"
