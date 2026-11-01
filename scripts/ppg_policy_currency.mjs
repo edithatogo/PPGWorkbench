@@ -202,6 +202,10 @@ const read = async () => {
 const comparable = (v) =>
   v?.Url ? JSON.stringify([v.Url, v.Description]) : v ?? null;
 const initial = await read(), desired = {}, changes = [];
+const currentIds = new Set(initial.map((r) => r.GUID));
+if (Object.keys(prior?.rows ?? {}).some((id) => !currentIds.has(id))) {
+  throw Error("Previously recorded lead missing; reconcile before refresh");
+}
 for (const r of initial) {
   if (!r.GUID || Object.hasOwn(desired, r.GUID)) {
     throw Error("Missing or duplicate lead identity");
