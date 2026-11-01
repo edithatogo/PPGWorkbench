@@ -117,7 +117,7 @@ function compare(rows, phase = "preflight") {
     const patch = {};
     for (const k of Object.keys(fields)) {
       if ((r[k] ?? null) === (want[k] ?? null)) continue;
-      if (r[k] != null && r[k] !== prior[r.DatasetId.toLowerCase()]?.[k]) {
+      if ((r[k] ?? null) !== (prior[r.DatasetId.toLowerCase()]?.[k] ?? null)) {
         throw Error(
           "Existing catalogue value requires reconciliation " + r.Id + " " + k,
         );

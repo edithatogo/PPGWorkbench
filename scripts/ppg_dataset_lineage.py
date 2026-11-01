@@ -121,7 +121,11 @@ def build(export, records, overrides, provenance=None):
             if '$batch' in route:
                 target = p.get('parameters/body','')
             text = unquote(expand(target)).lower()
-            site = expand(p.get('dataset','')).lower()
+            site_value = p.get('dataset','')
+            parameter = re.fullmatch(r"@(?:\{)?parameters\('([^']+)'\)\}?", site_value)
+            if parameter:
+                site_value = variables.get(parameter[1], '')
+            site = urlsplit(unquote(site_value).lower().rstrip('/'))
             direction = 'ReadFlows' if method=='GET' or op.startswith('Get') else 'WriteFlows' if method in ('POST','PUT','PATCH','DELETE','MERGE') or op in ('CreateNewFolder','CreateFile') else None
             titles = set(re.findall(r"getbytitle\('+([^']+)'+\)", text))
             ids = set(GUID.findall(text))
@@ -129,7 +133,8 @@ def build(export, records, overrides, provenance=None):
             for r in records:
                 url = urlsplit(unquote(r['DatasetUrl']['Url']).lower())
                 folder = url.path.rstrip('/').split('/')[-1]
-                same_site = url.netloc+url.path.rsplit('/',2 if '/lists/' in url.path else 1)[0] in site
+                site_path = url.path.rsplit('/',2 if '/lists/' in url.path else 1)[0]
+                same_site = (url.scheme, url.netloc, site_path) == (site.scheme, site.netloc, site.path)
                 if r['DatasetId'].lower() in ids or (same_site and r['Title'].lower() in titles) or (
                     folder and re.search('/'+re.escape(folder)+r"(?:/|$|['\"])", text.strip())
                     and same_site):
