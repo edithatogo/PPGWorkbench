@@ -20,7 +20,7 @@ def package(export, seed_name, bindings, version, destination):
         if manifest.findtext('Managed') != '0':
             raise ValueError('Use an unmanaged authoring export')
         name = manifest.findtext('UniqueName')
-        flow_id = str(uuid.uuid5(uuid.NAMESPACE_URL, 'PPGWorkbench/policy-currency/recurrence'))
+        flow_id = str(uuid.uuid5(uuid.NAMESPACE_URL, 'PPGWorkbench/policy-currency/scheduled-review'))
         filename = 'Workflows/PPGPolicyCurrency-' + flow_id + '.json'
         manifest.find('Version').text = version
         roots = manifest.find('RootComponents')
@@ -34,7 +34,7 @@ def package(export, seed_name, bindings, version, destination):
         workflow = copy.deepcopy(entries[0])
         for child in custom:
             child.clear()
-        title = 'PPG | Policy currency | Match leads and report dispositions'
+        title = 'PPG | Policy currency | Scheduled review and coverage'
         workflow.set('Name',title)
         workflow.set('WorkflowId','{'+flow_id+'}')
         workflow.find('JsonFileName').text = '/'+filename
