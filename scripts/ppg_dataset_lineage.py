@@ -43,6 +43,9 @@ def nodes(value):
 
 
 def build(export, records, overrides, provenance=None, bindings=None):
+    if bindings is not None and not (isinstance(bindings.get('site'), str) and
+            all(isinstance(bindings.get(k), dict) for k in ('files', 'folders'))):
+        raise ValueError('Binding evidence requires site, files and folders')
     variables = {}
     for xml in export.glob('environmentvariabledefinitions/*/environmentvariabledefinition.xml'):
         root = ET.parse(xml).getroot()

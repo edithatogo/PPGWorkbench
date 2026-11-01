@@ -47,6 +47,7 @@ def action_binding(name, actions, environment, proof, seen=()):
         dest = folder_id(urlsplit(site).path + dst)
         if source and dest:
             return (source | {dest}, ('WriteFlows',))
+        return None
     if op == 'CreateFile':
         folder = p.get('folderPath','').split('@',1)[0]
         ident = folder_id(urlsplit(site).path + folder)
