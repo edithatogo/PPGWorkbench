@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "companionVersion": "1.1.0",
+  "companionVersion": "1.2.0",
   "productionSolutionVersion": "0.2.1.1",
   "wholeProductInstallerVersion": "1.0.4",
   "solutionInventory": {
@@ -17,6 +17,8 @@
       "key": "policy-currency-review",
       "type": "SharePoint lead review fields and view",
       "entryPoint": "scripts/ppg_policy_currency.mjs",
+      "schedulerInstaller": "scripts/install_ppg_currency_job.py",
+      "reportModule": "scripts/ppg_currency_report.mjs",
       "identity": "site, lead list and native item GUID",
       "recovery": "reproject candidates using current catalogue and private previous receipt; preserve human dispositions"
     },

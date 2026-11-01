@@ -1,9 +1,10 @@
 // Usage: node scripts/ppg_policy_currency.mjs PRIVATE_ADAPTER NEW_RECEIPT [PRIOR_RECEIPT]
 import fs from "node:fs";
+import { coveragePage } from "./ppg_currency_report.mjs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
-const [adapter, receipt, previous] = process.argv.slice(2);
+const [adapter, receipt, previous, mode] = process.argv.slice(2);
 if (
   ![adapter, receipt, ...(previous ? [previous] : [])].every((v) =>
     v && path.resolve(v).split(path.sep).includes(".local")
@@ -179,6 +180,39 @@ const view = base + "/views/getbytitle('Policy currency review')",
 if (!viewFields.every((k) => (cols.Items ?? cols.value).includes(k))) {
   throw Error("View columns changed");
 }
+if (mode && (mode !== "--new-only" || !previous)) {
+  throw Error("Unsupported refresh mode");
+}
+const reportTitle = "Policy currency dispositions";
+const reportFields = [
+  "LinkTitle",
+  "ObservedAt",
+  "CurrencyMatch",
+  "CurrencyOwner",
+  "CurrencyDisposition",
+  "CurrencyPolicy",
+];
+const reportQuery =
+  '<GroupBy Collapse="TRUE" GroupLimit="100"><FieldRef Name="CurrencyDisposition"/></GroupBy><OrderBy><FieldRef Name="ObservedAt" Ascending="FALSE"/></OrderBy>';
+if (!(await c.all(base + "/views")).some((v) => v.Title === reportTitle)) {
+  await send("disposition-report", base + "/views/add", {
+    parameters: {
+      Title: reportTitle,
+      ViewFields: reportFields,
+      Query: reportQuery,
+      PersonalView: false,
+      SetAsDefaultView: false,
+      Paged: true,
+      RowLimit: 100,
+    },
+  });
+}
+const report = await c.get(
+  base + "/views/getbytitle('Policy currency dispositions')",
+);
+if (!report.ViewQuery?.includes('Name="CurrencyDisposition"')) {
+  throw Error("Disposition grouping missing");
+}
 const prior = previous ? JSON.parse(fs.readFileSync(previous)) : null;
 if (prior && (prior.list !== list.Id || prior.site !== c.c.siteUrl)) {
   throw Error("Wrong prior receipt");
@@ -209,6 +243,10 @@ if (Object.keys(prior?.rows ?? {}).some((id) => !currentIds.has(id))) {
 for (const r of initial) {
   if (!r.GUID || Object.hasOwn(desired, r.GUID)) {
     throw Error("Missing or duplicate lead identity");
+  }
+  if (mode === "--new-only" && prior?.rows[r.GUID]) {
+    desired[r.GUID] = prior.rows[r.GUID];
+    continue;
   }
   const want = project(r);
   desired[r.GUID] = want;
@@ -273,6 +311,7 @@ if (
   rows.some((r) => !titles.has(r.GUID) || titles.get(r.GUID) !== r.Title)
 ) throw Error("Lead inventory changed during refresh");
 for (const r of rows) {
+  if (mode === "--new-only" && prior?.rows[r.GUID]) continue;
   const expected = desired[r.GUID];
   if (
     !expected ||
@@ -282,6 +321,13 @@ for (const r of rows) {
   ) throw Error("Readback mismatch " + r.Id);
 }
 const url = (await c.get(view)).ServerRelativeUrl;
+const coverage = await coveragePage(
+  c,
+  send,
+  report.ServerRelativeUrl,
+  rows,
+  prior?.coverage,
+);
 fs.writeFileSync(
   receipt,
   JSON.stringify({
@@ -289,6 +335,11 @@ fs.writeFileSync(
     list: list.Id,
     rows: desired,
     verified: rows.length,
+    coverage,
+    report: report.ServerRelativeUrl,
+    dispositioned: rows.filter((r) =>
+      String(r.CurrencyDisposition ?? "").trim()
+    ).length,
     changed: changes.length,
     view: url,
   }),
