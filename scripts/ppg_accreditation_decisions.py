@@ -26,7 +26,10 @@ def _instant(value):
     """Return a UTC instant when an ISO timestamp includes a timezone."""
     if not isinstance(value, str) or len(value) <= 10 or value[10] != 'T':
         return None
-    parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    try:
+        parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError as exc:
+        raise ValueError('Invalid ISO timestamp') from exc
     if parsed.tzinfo is None:
         return None
     return parsed.astimezone(timezone.utc)
@@ -77,7 +80,6 @@ def validate_case(package, graph, as_of):
                        or scope not in scopes or scope not in context['ScopeKeys']
                        for scope in row_scopes)):
             raise ValueError('Decision scope is invalid or outside context')
-        _date(row['IssuedAt'], 'IssuedAt')
         if _date(row['IssuedAt'], 'IssuedAt') > today:
             raise ValueError('Decision issue date is in the future')
         if row.get('EffectiveTo') is not None:

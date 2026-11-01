@@ -136,6 +136,7 @@ for (const [kind, rows] of Object.entries(plan)) {
       const evidence = plan.evidence.find((e) =>
         e.EvidenceVersionKey === r.EvidenceVersionKey
       );
+      if (!evidence) throw Error("Missing evidence version " + r.EvidenceVersionKey);
       r.DocumentVersion = evidence.ExactVersion;
       r.EvidenceRef = evidence.SourceURI;
     }

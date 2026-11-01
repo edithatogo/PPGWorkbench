@@ -283,7 +283,7 @@ export async function ensureDirectoryPage(
   const decoded = saved.CanvasContent1.replace(
     /&#(\d+);/g,
     (_, n) => String.fromCharCode(Number(n)),
-  ).replaceAll("&amp;", "&");
+  ).replaceAll("&quot;", '"').replaceAll("&lt;", "<").replaceAll("&gt;", ">").replaceAll("&amp;", "&");
   for (const r of result.desired) {
     if (
       !decoded.includes(r.Title) ||

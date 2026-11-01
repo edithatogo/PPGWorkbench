@@ -1,4 +1,6 @@
-# careops-ppg
+# PPGWorkbench
+
+Use `[Organisation]PPGWorkbench` for the platform solution name, substituting the organisation prefix. Keep the existing unique name for an established installation.
 
 Portable tools for policies, procedures and guidelines: draft package assembly,
 source reconciliation, identity exceptions, consultation records, readiness,

@@ -154,8 +154,8 @@ jobs:
         run: |
           cp "$PROVENANCE_BUNDLE" candidate/build-attestation.jsonl
           cp "$SBOM_BUNDLE" candidate/sbom-attestation.jsonl
-          gh attestation verify candidate/careops-ppg-portable.zip --bundle "$PROVENANCE_BUNDLE" --repo edithatogo/careops-ppg --signer-workflow edithatogo/careops-ppg/.github/workflows/package-release.yml --source-ref refs/heads/main --source-digest "$SOURCE_COMMIT" --signer-digest "$SOURCE_COMMIT" --deny-self-hosted-runners --format json > candidate/provenance-verification.json
-          gh attestation verify candidate/careops-ppg-portable.zip --bundle "$SBOM_BUNDLE" --repo edithatogo/careops-ppg --signer-workflow edithatogo/careops-ppg/.github/workflows/package-release.yml --source-ref refs/heads/main --source-digest "$SOURCE_COMMIT" --signer-digest "$SOURCE_COMMIT" --deny-self-hosted-runners --predicate-type https://spdx.dev/Document/v2.3 --format json > candidate/sbom-verification.json
+          gh attestation verify candidate/careops-ppg-portable.zip --bundle "$PROVENANCE_BUNDLE" --repo edithatogo/PPGWorkbench --signer-workflow edithatogo/PPGWorkbench/.github/workflows/package-release.yml --source-ref refs/heads/main --source-digest "$SOURCE_COMMIT" --signer-digest "$SOURCE_COMMIT" --deny-self-hosted-runners --format json > candidate/provenance-verification.json
+          gh attestation verify candidate/careops-ppg-portable.zip --bundle "$SBOM_BUNDLE" --repo edithatogo/PPGWorkbench --signer-workflow edithatogo/PPGWorkbench/.github/workflows/package-release.yml --source-ref refs/heads/main --source-digest "$SOURCE_COMMIT" --signer-digest "$SOURCE_COMMIT" --deny-self-hosted-runners --predicate-type https://spdx.dev/Document/v2.3 --format json > candidate/sbom-verification.json
       - name: Preserve exact package and signature evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

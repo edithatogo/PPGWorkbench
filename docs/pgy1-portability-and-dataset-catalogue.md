@@ -1,6 +1,6 @@
 # PGY1 portability and the PPG dataset catalogue
 
-AC-08 and AC-20 reached owner-operated technical acceptance on 1 November 2026. The PGY1 fixture describes a fictional program and term. Clinical assurance, external assessment, trainee records and formal awards require their own operational evidence.
+The PGY1 fixture describes a fictional program and term. Clinical assurance, external assessment, trainee records and formal awards require their own operational evidence.
 
 | Example | What is reused | What is specific to the example |
 |---|---|---|
@@ -28,11 +28,11 @@ The package contains the framework profile, four requirement nodes, program and 
 node scripts/ppg_pmaq_native.mjs .local/adapter.mjs .local/pgy1.json .local/pgy1-target.json .local/pgy1-receipt.json
 ```
 
-For recovery, select separate native objects and bind the same logical keys to their destination IDs. Reuse the actual exported revision after an owner edit. A conflicting existing row stops import. Production proof covered 19 rows, separate recovery, preserved version history, stale edit rejection and replay. Four independent judgements resolve one shared evidence version across the three examples. The owner workspace links the native comparison and individual assessments.
+For recovery, select separate native objects and bind the same logical keys to their destination IDs. Reuse the actual exported revision after an owner edit. A conflicting existing row stops import. Verify separate recovery, preserved version history, stale edit rejection and unchanged replay. Link each independent judgement to the shared evidence version.
 
 ## Browse and provision the dataset directory
 
-Open **PPG Dataset Catalogue** in Site Pages or use the **Dataset directory** view of the identically named SharePoint list. The page groups links by purpose. The list retains the physical list ID, installer key where available, scope, list/library type, link and versioning setting. The commissioning inventory covered 166 PPG-owned or explicitly bound list/library objects on the workbench site, including the directory. Upstream external sources are documented separately as dependencies. Privately captured responses, mail contents and dataset rows stay in their source locations.
+Open **PPG Dataset Catalogue** in Site Pages or use the **Dataset directory** view of the identically named SharePoint list. The page groups links by purpose. The list retains the physical list ID, installer key where available, scope, list/library type, link and versioning setting. Include each product list or library and the directory itself. Upstream external sources are documented separately as dependencies. Privately captured responses, mail contents and dataset rows stay in their source locations.
 
 After provisioning the product objects, run the directory companion with the private object map returned by provisioning (the map's entries contain the destination `id`). Use an account with access to the intended catalogue scope. Keep the list/page audience appropriate for the directory metadata. Existing permissions govern opening the links.
 
@@ -46,7 +46,7 @@ The command adds missing entries by physical identity and verifies readback. Exi
 
 The production Power Platform solution is **0.2.1.0**. The reusable whole-product workflow installer is **1.0.4**. This SharePoint companion release is **1.0.0**. The application package contains 35 workflow definitions, five connection references and nine environment-variable definitions. The SharePoint register, page, PGY1 records, source captures and templates use separate provisioning and recovery contracts. Their version histories and deployment receipts belong with the solution release manifest.
 
-The managed and unmanaged exports of the production version were checked for ZIP integrity, solution identity, managed flag, all workflow definitions, connection-reference membership and environment-variable membership. Both packages contain environment-specific bindings and stay private.
+Compare both exports for ZIP integrity, solution identity, managed flag, workflow definitions, connection references and environment variables. Export packages can contain environment-specific bindings and stay private.
 
 **Deployment decision.** Keep the current editable source solution unmanaged. Use the managed package for a separately selected downstream environment after import, connection and environment-variable binding, SharePoint provisioning, one representative run and an upgrade/recovery check there. Managed import and upgrade are unqualified at this release. Converting the existing source environment in place would put the editing and deployment roles in the same environment. This follows the RIMS release pattern of an editable source, a downstream package, a component inventory and separate evidence for external stores. [Microsoft solution lifecycle guidance](https://learn.microsoft.com/en-us/power-platform/alm/solution-concepts-alm)
 
