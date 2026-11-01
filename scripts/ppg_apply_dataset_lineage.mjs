@@ -100,9 +100,10 @@ if (
   );
   columns = await c.get(viewRoute);
 }
-if (
-  !viewFields.every((k) => (columns.Items ?? columns.value ?? []).includes(k))
-) throw Error("View readback mismatch: " + Object.keys(columns));
+const missing = viewFields.filter((k) =>
+  !(columns.Items ?? columns.value ?? []).includes(k)
+);
+if (missing.length) throw Error("Missing view fields: " + missing.join(", "));
 async function read() {
   const rows = [];
   let route = base + "/items?$select=Id,DatasetId," +
