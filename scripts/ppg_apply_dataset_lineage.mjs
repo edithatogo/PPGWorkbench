@@ -1,0 +1,186 @@
+// Apply the private export-derived manifest through the installation's qualified adapter.
+import fs from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { createHash } from "node:crypto";
+const [adapter, manifest, receipt, previous] = process.argv.slice(2);
+if (
+  ![adapter, manifest, receipt, ...(previous ? [previous] : [])].every((v) =>
+    v && path.resolve(v).split(path.sep).includes(".local")
+  ) || fs.existsSync(receipt)
+) throw Error("Require private inputs and new receipt");
+const c = await (await import(pathToFileURL(path.resolve(adapter)))).connect();
+const plan = JSON.parse(fs.readFileSync(manifest));
+const prior = previous ? JSON.parse(fs.readFileSync(previous)).rows : {};
+const hash = (v) => createHash("sha256").update(v).digest("hex");
+async function send(key, route, payload, extra = {}) {
+  return c.send({
+    key: "lineage-" + key,
+    route,
+    payload,
+    payloadSHA256: hash(
+      Buffer.isBuffer(payload) ? payload : JSON.stringify(payload),
+    ),
+    ...extra,
+  });
+}
+const list = await c.get(
+  "lists/getbytitle('PPG Dataset Catalogue')?$select=Id,EnableVersioning",
+);
+if (!list.EnableVersioning) throw Error("Versioning required");
+const base = "lists(guid'" + list.Id + "')";
+const fields = {
+  DataRole: "Choice",
+  DatasetSource: "Note",
+  ReadFlows: "Note",
+  WriteFlows: "Note",
+  BindingStatus: "Text",
+};
+const schema = await c.all(base + "/fields?$select=InternalName,TypeAsString");
+for (const [name, type] of Object.entries(fields)) {
+  const existing = schema.find((f) => f.InternalName === name);
+  if (existing && existing.TypeAsString !== type) {
+    throw Error("Field conflict " + name);
+  }
+  if (!existing) {
+    const choices = name === "DataRole"
+      ? "<CHOICES>" +
+        ["Primary", "Secondary", "Aggregate", "Unresolved"].map((s) =>
+          "<CHOICE>" + s + "</CHOICE>"
+        ).join("") + "</CHOICES>"
+      : "";
+    await send(name.toLowerCase(), base + "/fields/CreateFieldAsXml", {
+      parameters: {
+        SchemaXml: '<Field Name="' + name + '" StaticName="' + name +
+          '" DisplayName="' + name + '" Type="' + type + '" RichText="FALSE">' +
+          choices + "</Field>",
+        Options: 8,
+      },
+    });
+  }
+}
+const viewFields = [
+  "Title",
+  "DataRole",
+  "DatasetSource",
+  "ReadFlows",
+  "WriteFlows",
+  "BindingStatus",
+  "DatasetScope",
+  "DatasetUrl",
+];
+const views = await c.all(base + "/views");
+if (!views.some((v) => v.Title === "Used by")) {
+  await send("view", base + "/views/add", {
+    parameters: {
+      Title: "Used by",
+      ViewFields: viewFields,
+      Query:
+        '<OrderBy><FieldRef Name="DatasetScope"/><FieldRef Name="Title"/></OrderBy>',
+      PersonalView: false,
+      SetAsDefaultView: false,
+      Paged: true,
+      RowLimit: 100,
+    },
+  });
+}
+const view = await c.get(base + "/views/getbytitle('Used by')");
+const columns = await c.get(base + "/views/getbytitle('Used by')/ViewFields");
+if (
+  !viewFields.every((k) => (columns.Items ?? columns.value ?? []).includes(k))
+) throw Error("View readback mismatch: " + Object.keys(columns));
+async function read() {
+  const rows = [];
+  let route = base + "/items?$select=Id,DatasetId," +
+    Object.keys(fields).join(",") + "&$top=500";
+  while (route) {
+    const page = await c.item(route);
+    rows.push(...page.results);
+    route = page.__next;
+  }
+  return rows;
+}
+function compare(rows) {
+  if (
+    rows.length !== Object.keys(plan.rows).length ||
+    new Set(rows.map((r) => r.DatasetId.toLowerCase())).size !== rows.length
+  ) throw Error("Inventory changed");
+  const changes = [];
+  for (const r of rows) {
+    const want = plan.rows[r.DatasetId.toLowerCase()];
+    if (!want) throw Error("Dataset absent from manifest");
+    const patch = {};
+    for (const k of Object.keys(fields)) {
+      if ((r[k] ?? null) === (want[k] ?? null)) continue;
+      if (r[k] != null && r[k] !== prior[r.DatasetId.toLowerCase()]?.[k]) {
+        throw Error(
+          "Existing catalogue value requires reconciliation " + r.Id + " " + k,
+        );
+      }
+      patch[k] = want[k];
+    }
+    if (Object.keys(patch).length) changes.push({ r, patch });
+  }
+  return changes;
+}
+const changes = compare(await read());
+for (let i = 0; i < changes.length; i += 20) {
+  const parts = [], group = changes.slice(i, i + 20);
+  const boundary = "batch_" + hash(JSON.stringify(group)).slice(0, 24);
+  for (const { r, patch } of group) {
+    const tag = r.__metadata?.etag;
+    if (!/^"\d+"$/.test(tag)) throw Error("Missing row version " + r.Id);
+    const cs = "changeset_" + r.Id;
+    parts.push(
+      "--" + boundary,
+      "Content-Type: multipart/mixed; boundary=" + cs,
+      "",
+      "--" + cs,
+      "Content-Type: application/http",
+      "Content-Transfer-Encoding: binary",
+      "",
+      "PATCH " + c.c.siteUrl + "/_api/web/" + base + "/items(" + r.Id +
+        ") HTTP/1.1",
+      "If-Match: " + tag,
+      "Content-Type: application/json;odata=nometadata",
+      "",
+      JSON.stringify(patch),
+      "--" + cs + "--",
+    );
+  }
+  parts.push("--" + boundary + "--", "");
+  const bytes = Buffer.from(parts.join("\r\n"));
+  const result = await send(
+    hash(bytes).slice(0, 24),
+    c.c.siteUrl + "/_api/$batch",
+    bytes,
+    { contentType: "multipart/mixed; boundary=" + boundary },
+  );
+  const codes = [...String(result).matchAll(/HTTP\/1\.[01] (\d{3})/g)].map(
+    (m) => m[1],
+  );
+  if (codes.length !== group.length || codes.some((v) => v !== "204")) {
+    throw Error("Reconcile batch results " + codes.join(","));
+  }
+  if (i + 20 < changes.length) await new Promise((r) => setTimeout(r, 4000));
+}
+const rows = await read();
+if (compare(rows).length) throw Error("Row readback mismatch");
+fs.writeFileSync(
+  receipt,
+  JSON.stringify({
+    verified: rows.length,
+    changed: changes.length,
+    view: view.ServerRelativeUrl,
+    flows: plan.flowCount,
+    unresolvedActions: plan.unresolvedActions.length,
+  }),
+  { flag: "wx", mode: 0o600 },
+);
+console.log(
+  "Verified",
+  rows.length,
+  "catalogue entries;",
+  changes.length,
+  "changed",
+);
