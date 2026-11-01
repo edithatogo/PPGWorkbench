@@ -42,3 +42,5 @@ Pass `--bindings .local/bindings.json` to the lineage builder after verifying ob
 Optional `productUse` maps physical dataset IDs to concise descriptions of documented native form, CLI or other use. Optional `externalActions` and `runObservations` use workflow display name and action name as keys. Each entry retains the exact connector parameters. External reads also record the source and relevant environment-variable values. A run observation records a parent dataset verified for the selected request and successful action. Keep the successful run, input identities and native lookup evidence with the private manifest. Run-specific parents remain unresolved for other requests.
 
 The output separates resolved actions, selected-run observations and remaining unknown targets. A CLI writer belongs in BindingStatus. The flow columns are reserved for flow bindings.
+
+For a confirmed parent library outside the product catalogue, record its physical ID and verified name in `externalDatasets`. Other missing parents stay on the unresolved action register, including a move that has only one catalogued endpoint.

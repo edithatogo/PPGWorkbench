@@ -159,7 +159,16 @@ def build(export, records, overrides, provenance=None, bindings=None):
                     for ident in ids & rows.keys():
                         for use in directions:
                             rows[ident][use].add(flow)
-                    resolved.append(dict(flow=flow,action=name,datasets=sorted(ids),directions=directions))
+                    outside = ids - rows.keys()
+                    external_targets = bindings.get('externalDatasets', {})
+                    missing = outside - external_targets.keys()
+                    if missing:
+                        gaps.append(dict(flow=flow,action=name,operation=op,reason='Parent outside catalogue without verified external binding',missingDatasets=sorted(missing)))
+                        continue
+                    resolution = dict(flow=flow,action=name,datasets=sorted(ids),directions=directions)
+                    if outside:
+                        resolution['externalDatasets'] = {k:external_targets[k] for k in sorted(outside)}
+                    resolved.append(resolution)
                     continue
                 if bindings:
                     external = bindings.get('externalActions',{}).get(flow,{}).get(name)
