@@ -35,3 +35,7 @@ Clean recovery restores selected sealed records/files into isolated objects.
 Cross-tenant recovery was removed from commissioned scope on 31 October 2026.
 Clean recovery remains supported in isolated objects in the existing tenant.
 Historical portable mapping work is retained; it does not commission a transfer.
+
+## November 2026 release
+
+The whole-product installer, SharePoint companions and production solution have separate versions. The [release manifest](../config/ppg-companion-release.json) records their relationship, component counts, managed build qualification and the directory and PGY1 entry points. See the [three-example comparison, directory and promotion decision](pgy1-portability-and-dataset-catalogue.md).

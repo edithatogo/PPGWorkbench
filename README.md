@@ -1,4 +1,6 @@
-# careops-ppg
+# PPGWorkbench
+
+Use `[Organisation]PPGWorkbench` for the platform solution name, substituting the organisation prefix. Keep the existing unique name for an established installation.
 
 Portable tools for policies, procedures and guidelines: draft package assembly,
 source reconciliation, identity exceptions, consultation records, readiness,
@@ -227,3 +229,5 @@ compilers. These are portable source contracts, not native deployment claims.
 [Guide preparation, exact-revision review and controlled filing](docs/owner-controlled-guide.md)
 use the maintained owner rubric and create-only evidence receipts. Portable source
 and fictional tests do not establish native deployment or institutional issuance.
+
+[Dataset catalogue, accreditation examples and release modes](docs/pgy1-portability-and-dataset-catalogue.md)
