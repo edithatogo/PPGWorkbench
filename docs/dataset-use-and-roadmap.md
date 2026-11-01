@@ -56,3 +56,16 @@ Supply these observations in the private bindings file under `fictionalRunReads`
 Compare the trigger and complete definition with the surviving flow. Check solution dependencies, workflow callers, sharing, SharePoint commands and run history. Preserve the previous export and confirm that the surviving flow retains its identity, state and definition. After removing a duplicate, rebuild the catalogue from the new export so the retired identity disappears from both reader and writer columns.
 
 The case-work router retains its two baseline reads for the original fictional ownership contract. The first compares the baseline identity and version before the conditional case update. The second checks them again before the flow records a successful commit. If the baseline changes during the update, the flow must withhold the commit and leave the journal available for reconciliation.
+
+## Policy currency review
+
+Open **PPG Source Update Leads → Policy currency review**. Compare the publisher's SourceLink with the suggested catalogue record. CurrencyEvidence gives the identifier, title or distinctive phrase that produced the suggestion. Where several records qualify, it lists each policy, catalogue custodian and link. Indirect links are labelled with the recorded relationship type and review state. CurrencyOwner is the source register's custodian for a single candidate; reviewers should confirm current responsibility. Enter a human decision in CurrencyDisposition, for example “Affected — review opened”, “No impact” or “More evidence needed”. Blank means awaiting triage.
+
+Run the CLI companion after collection or catalogue changes. New arrivals are visible immediately in the view and have empty matching fields until refresh. Preserve the private receipt to refresh generated fields safely. A changed match on a dispositioned lead requires reconciliation. Matching uses the lead title and local catalogue; newsletter bodies, linked publications and clinical applicability require separate review.
+
+```sh
+node scripts/ppg_policy_currency.mjs .local/adapter.mjs .local/currency-first.json
+node scripts/ppg_policy_currency.mjs .local/adapter.mjs .local/currency-next.json .local/currency-first.json
+```
+
+Track triage coverage as leads with a recorded disposition divided by leads in the selected period. Count ambiguous and unmatched leads in the denominator. The existing collection flows and their connection references remain the ALM unit. The SharePoint fields and review view travel with the Git-versioned companion and require provisioning against each installation.
