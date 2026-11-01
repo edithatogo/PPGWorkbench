@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "companionVersion": "1.0.0",
+  "companionVersion": "1.1.0",
   "productionSolutionVersion": "0.2.1.1",
   "wholeProductInstallerVersion": "1.0.4",
   "solutionInventory": {
@@ -13,6 +13,13 @@
     "managedImportQualified": false
   },
   "companions": [
+    {
+      "key": "policy-currency-review",
+      "type": "SharePoint lead review fields and view",
+      "entryPoint": "scripts/ppg_policy_currency.mjs",
+      "identity": "site, lead list and native item GUID",
+      "recovery": "reproject candidates using current catalogue and private previous receipt; preserve human dispositions"
+    },
     {
       "key": "dataset-directory",
       "type": "SharePoint list and site page",

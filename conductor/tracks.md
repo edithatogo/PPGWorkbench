@@ -10,3 +10,5 @@
 - [x] **Fictional lifecycle run evidence.** Record successful action destinations separately from static readers. [Dataset operating guide](../docs/dataset-use-and-roadmap.md)
 
 - [x] **Case-work duplicate retirement.** The release contains one case-work workflow. Its original ownership contract retains the before-and-after baseline checks. [Dataset operating guide](../docs/dataset-use-and-roadmap.md)
+
+- [~] [Policy currency](tracks/policy_currency/plan.md). CLI review view and dataset matching delivered; disposition reporting remains roadmap work.
