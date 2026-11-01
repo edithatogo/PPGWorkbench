@@ -136,3 +136,5 @@ then correctly refuses the mismatch. Use the existing `recorded-baseline` reques
 mode with an evidenced frozen selection matching that case and its exact original
 baseline pin/hash. Create a new selection and request revision, retaining request
 history; do not repin the case or relabel the historical baseline as current.
+
+After provisioning, use the object map to [commission the SharePoint dataset directory and the optional fictional PGY1 example](pgy1-portability-and-dataset-catalogue.md). The directory registers operational and supporting objects separately from recovery and installation copies. Rebind SharePoint IDs, connections and environment variables for each installation.

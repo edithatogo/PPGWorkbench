@@ -227,3 +227,5 @@ compilers. These are portable source contracts, not native deployment claims.
 [Guide preparation, exact-revision review and controlled filing](docs/owner-controlled-guide.md)
 use the maintained owner rubric and create-only evidence receipts. Portable source
 and fictional tests do not establish native deployment or institutional issuance.
+
+[Dataset catalogue, accreditation examples and release modes](docs/pgy1-portability-and-dataset-catalogue.md)
