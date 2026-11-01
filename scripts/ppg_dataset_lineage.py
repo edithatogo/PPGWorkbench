@@ -1,5 +1,10 @@
 """Build a private dataset-use manifest from an extracted solution and catalogue receipt."""
+if __package__:
+    from .ppg_binding_resolution import action_binding
+else:
+    from ppg_binding_resolution import action_binding
 import argparse
+import os
 import json
 import re
 from collections import defaultdict
@@ -37,7 +42,10 @@ def nodes(value):
             yield from nodes(child)
 
 
-def build(export, records, overrides, provenance=None):
+def build(export, records, overrides, provenance=None, bindings=None):
+    if bindings is not None and not (isinstance(bindings.get('site'), str) and
+            all(isinstance(bindings.get(k), dict) for k in ('files', 'folders'))):
+        raise ValueError('Binding evidence requires site, files and folders')
     variables = {}
     for xml in export.glob('environmentvariabledefinitions/*/environmentvariabledefinition.xml'):
         root = ET.parse(xml).getroot()
@@ -79,6 +87,7 @@ def build(export, records, overrides, provenance=None):
             role, source = 'Unresolved', 'Original authority or derivation unresolved'
         source = (provenance or {}).get(r['DatasetId'].lower(), source)
         rows[r['DatasetId'].lower()] = dict(DataRole=role, DatasetSource=source, ReadFlows=set(), WriteFlows=set())
+    resolved, observed = [], []
     flow_count = 0
     for path in sorted((export/'Workflows').glob('*.json')):
         flow_count += 1
@@ -87,6 +96,7 @@ def build(export, records, overrides, provenance=None):
         if not flow:
             raise ValueError(f'Cannot identify exported workflow {path.name}')
         actions = list(nodes(json.loads(path.read_text())['properties']['definition']))
+        action_map = dict(actions)
         sources = defaultdict(list)
         for name, action in actions:
             inp = action['inputs']
@@ -143,15 +153,44 @@ def build(export, records, overrides, provenance=None):
                 for ident in matches:
                     rows[ident][direction].add(flow)
             else:
+                result = action_binding(name, action_map, variables, bindings) if bindings else None
+                if result:
+                    ids, directions = result
+                    for ident in ids & rows.keys():
+                        for use in directions:
+                            rows[ident][use].add(flow)
+                    outside = ids - rows.keys()
+                    external_targets = bindings.get('externalDatasets', {})
+                    missing = outside - external_targets.keys()
+                    if missing:
+                        gaps.append(dict(flow=flow,action=name,operation=op,reason='Parent outside catalogue without verified external binding',missingDatasets=sorted(missing)))
+                        continue
+                    resolution = dict(flow=flow,action=name,datasets=sorted(ids),directions=directions)
+                    if outside:
+                        resolution['externalDatasets'] = {k:external_targets[k] for k in sorted(outside)}
+                    resolved.append(resolution)
+                    continue
+                if bindings:
+                    external = bindings.get('externalActions',{}).get(flow,{}).get(name)
+                    if (external and method == 'GET' and external['parameters'] == p
+                            and all(variables.get(k) == v for k,v in external.get('environment',{}).items())):
+                        resolved.append(dict(flow=flow,action=name,external=external['source'],directions=['ReadFlows']))
+                        continue
+                    sample = bindings.get('runObservations',{}).get(flow,{}).get(name)
+                    if sample and sample['parameters'] == p and sample['dataset'] in rows:
+                        observed.append(dict(flow=flow,action=name,dataset=sample['dataset'],scope='Selected production run'))
                 gaps.append({'flow':flow,'action':name,'operation':op,'reason':('Unclassified connector operation' if not direction else 'External, dynamic or uncatalogued target')})
     if not flow_count or not rows:
         raise ValueError('Empty solution or directory')
-    for row in rows.values():
+    for ident,row in rows.items():
         linked = bool(row['ReadFlows'] or row['WriteFlows'])
         row['BindingStatus'] = ('Export binding found' if linked else 'No exact solution flow binding') + ('; source unresolved' if 'unresolved' in row['DatasetSource'].lower() else '')
+        note = (bindings or {}).get('productUse',{}).get(ident)
+        if note:
+            row['BindingStatus'] += '; ' + note
         for field in ('ReadFlows','WriteFlows'):
             row[field] = '\n'.join(sorted(row[field])) or None
-    return dict(flowCount=flow_count, rows=rows, unresolvedActions=gaps)
+    return dict(flowCount=flow_count, rows=rows, unresolvedActions=gaps, resolvedActions=resolved, runObservations=observed)
 
 
 if __name__ == '__main__':
@@ -160,9 +199,11 @@ if __name__ == '__main__':
         p.add_argument(arg,type=Path)
     p.add_argument('--overrides', type=Path, help='Private effective parameter name/value map')
     p.add_argument('--provenance', type=Path, help='Private physical dataset ID to receipt-backed source description')
+    p.add_argument('--bindings', type=Path, help='Private file-parent, external-source and product-use evidence')
     a = p.parse_args()
     result = build(a.export,json.loads(a.catalogue.read_text())['desired'],
                    json.loads(a.overrides.read_text()) if a.overrides else {},
-                   json.loads(a.provenance.read_text()) if a.provenance else {})
-    with a.output.open('x') as f:
+                   json.loads(a.provenance.read_text()) if a.provenance else {},
+                   json.loads(a.bindings.read_text()) if a.bindings else {})
+    with open(a.output, 'x', opener=lambda path, flags: os.open(path, flags, 0o600)) as f:
         json.dump(result,f,indent=2)

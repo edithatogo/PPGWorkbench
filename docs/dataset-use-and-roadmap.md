@@ -34,3 +34,13 @@ These are proposed increments. Each starts with a decision the team already need
 | Hospital context for service planners | Hospital Dataset Captures, Facilities, Current Metrics, Busyness Trends and the shared daily collector | Show capture freshness and missing facilities before presenting operational trends. Measure coverage against each response's declared total. |
 | Safe change and recovery for platform maintainers | Dataset Catalogue, Used by, solution export and installation/recovery bindings | Prioritise unresolved actions in production writers, then report changed dependencies with each release. Measure unresolved production write destinations. |
 | Reporting for service leadership | Existing monthly reports, status projections and verified datasets | Define the first question and owner before adding the roadmap Power BI dashboard. Measure whether the report answers that agreed question. |
+
+### Investigate unresolved production writers
+
+Pass `--bindings .local/bindings.json` to the lineage builder after verifying object identities with the installation's CLI. The private JSON contains the target `site`, a `folders` dictionary mapping physical list IDs to server-relative roots, and a `files` dictionary mapping file IDs to native parent list IDs. Include all candidate file parents for a conditional or configured file selection. Inspect both folders for a move and retain the connector's source and destination site checks.
+
+Optional `productUse` maps physical dataset IDs to concise descriptions of documented native form, CLI or other use. Optional `externalActions` and `runObservations` use workflow display name and action name as keys. Each entry retains the exact connector parameters. External reads also record the source and relevant environment-variable values. A run observation records a parent dataset verified for the selected request and successful action. Keep the successful run, input identities and native lookup evidence with the private manifest. Run-specific parents remain unresolved for other requests.
+
+The output separates resolved actions, selected-run observations and remaining unknown targets. A CLI writer belongs in BindingStatus. The flow columns are reserved for flow bindings.
+
+For a confirmed parent library outside the product catalogue, record its physical ID and verified name in `externalDatasets`. Other missing parents stay on the unresolved action register, including a move that has only one catalogued endpoint.
