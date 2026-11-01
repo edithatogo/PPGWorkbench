@@ -32,6 +32,18 @@
     {
       "name": "ObservationJSON",
       "type": "Note"
+    },
+    {
+      "name": "CurrencyNoticeText",
+      "type": "Note"
+    },
+    {
+      "name": "CurrencyNoticeProvenance",
+      "type": "Note"
+    },
+    {
+      "name": "CurrencyReviewEvidence",
+      "type": "Note"
     }
   ],
   "recordStates": [

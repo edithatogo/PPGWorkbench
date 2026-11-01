@@ -16,7 +16,7 @@ function main(workbook: ExcelScript.Workbook, requestJson:string):string {
  const t=norm(l.Title);let basis="Identifier in lead title";let hits=x.policies.filter(p=>[p.DocumentUID,p.sourceDocumentId].some(v=>!!v&&v.length>=6&&t.includes(norm(v))));
  if(!hits.length){basis="Exact catalogue title";hits=x.policies.filter(p=>!!p.sourceTitle&&norm(p.sourceTitle)===t)}
  if(!hits.length){const matches=new Map<Policy,string>();for(const key of phrases(l.Title)){const group=idx.get(key);if(group&&group.length===1)matches.set(group[0],key)}hits=Array.from(matches.keys());basis="Shared catalogue phrase: "+Array.from(new Set(Array.from(matches.values()))).join("; ")}
- if(!hits.length && l.ObservationJSON){let o:{sourceObservation?:{summary?:string}};try{o=JSON.parse(l.ObservationJSON)}catch{throw Error("Malformed source observation")}
+ if(!hits.length && (l.ObservationJSON||l.CurrencyNoticeText)){let o:{sourceObservation?:{summary?:string}};try{o=l.ObservationJSON?JSON.parse(l.ObservationJSON):{}}catch{throw Error("Malformed source observation")}
  const raw=l.CurrencyNoticeText||o.sourceObservation?.summary||"";
  const text=raw.length<=10000?raw.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi," ").replace(/<[^>]*>/g," ").replace(/&(?:nbsp|amp|quot|apos|lt|gt);/g," "):"";
  const matches=new Map<Policy,string[]>();
