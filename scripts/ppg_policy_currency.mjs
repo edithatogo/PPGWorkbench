@@ -210,6 +210,14 @@ if (!(await c.all(base + "/views")).some((v) => v.Title === reportTitle)) {
 const report = await c.get(
   base + "/views/getbytitle('Policy currency dispositions')",
 );
+const reportColumns = await c.get(
+  base + "/views/getbytitle('Policy currency dispositions')/ViewFields",
+);
+if (
+  !reportFields.every((k) =>
+    (reportColumns.Items ?? reportColumns.value ?? []).includes(k)
+  )
+) throw Error("Disposition report columns changed");
 if (!report.ViewQuery?.includes('Name="CurrencyDisposition"')) {
   throw Error("Disposition grouping missing");
 }
@@ -235,13 +243,15 @@ const read = async () => {
 };
 const comparable = (v) =>
   v?.Url ? JSON.stringify([v.Url, v.Description]) : v ?? null;
-const initial = await read(), desired = {}, changes = [];
+const initial = await read(), desired = {}, changes = [], held = {};
 const currentIds = new Set(initial.map((r) => r.GUID));
 if (Object.keys(prior?.rows ?? {}).some((id) => !currentIds.has(id))) {
   throw Error("Previously recorded lead missing; reconcile before refresh");
 }
 for (const r of initial) {
-  if (!r.GUID || Object.hasOwn(desired, r.GUID)) {
+  if (
+    !r.GUID || Object.hasOwn(desired, r.GUID) || Object.hasOwn(held, r.GUID)
+  ) {
     throw Error("Missing or duplicate lead identity");
   }
   if (mode === "--new-only" && prior?.rows[r.GUID]) {
@@ -254,9 +264,20 @@ for (const r of initial) {
   for (const k of Object.keys(want)) {
     if (comparable(want[k]) === comparable(r[k])) continue;
     if (comparable(r[k]) !== comparable(prior?.rows[r.GUID]?.[k])) {
+      if (mode === "--new-only") {
+        held[r.GUID] = "Owner edit requires review";
+        break;
+      }
       throw Error("Reconcile owner edit on lead " + r.Id);
     }
     patch[k] = want[k];
+  }
+  if (
+    mode === "--new-only" && Object.keys(patch).length && r.CurrencyDisposition
+  ) held[r.GUID] = "Existing disposition requires review";
+  if (Object.hasOwn(held, r.GUID)) {
+    delete desired[r.GUID];
+    continue;
   }
   if (Object.keys(patch).length && r.CurrencyDisposition) {
     throw Error("Review disposition before changing lead " + r.Id);
@@ -312,6 +333,7 @@ if (
 ) throw Error("Lead inventory changed during refresh");
 for (const r of rows) {
   if (mode === "--new-only" && prior?.rows[r.GUID]) continue;
+  if (Object.hasOwn(held, r.GUID)) continue;
   const expected = desired[r.GUID];
   if (
     !expected ||
@@ -334,7 +356,11 @@ fs.writeFileSync(
     site: c.c.siteUrl,
     list: list.Id,
     rows: desired,
+    held,
     verified: rows.length,
+    evaluated: mode === "--new-only"
+      ? initial.filter((r) => !prior.rows[r.GUID]).length
+      : initial.length,
     coverage,
     report: report.ServerRelativeUrl,
     dispositioned: rows.filter((r) =>
