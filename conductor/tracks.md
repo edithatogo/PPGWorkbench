@@ -8,3 +8,5 @@
 - [x] **Production writer and product binding reconciliation.** Resolve file parents, conditional writes and moves. Record native-form and CLI use separately from solution-flow membership; retain request-dependent destinations in the private action register. [Operating guidance](../docs/dataset-use-and-roadmap.md)
 
 - [x] **Fictional lifecycle run evidence.** Record successful action destinations separately from static readers. [Dataset operating guide](../docs/dataset-use-and-roadmap.md)
+
+- [x] **Case-work duplicate retirement.** The release contains one case-work workflow. Its original ownership contract retains the before-and-after baseline checks. [Dataset operating guide](../docs/dataset-use-and-roadmap.md)
