@@ -5402,6 +5402,30 @@
           "indexed": false,
           "unique": false,
           "xml": "<Field Type=\"Note\" Name=\"ObservationJSON\" StaticName=\"ObservationJSON\" DisplayName=\"ObservationJSON\" Required=\"FALSE\" RichText=\"FALSE\" AppendOnly=\"FALSE\" NumLines=\"6\" />"
+        },
+        {
+          "name": "CurrencyNoticeText",
+          "type": "Note",
+          "required": false,
+          "indexed": false,
+          "unique": false,
+          "xml": "<Field Type=\"Note\" Name=\"CurrencyNoticeText\" StaticName=\"CurrencyNoticeText\" DisplayName=\"CurrencyNoticeText\" Required=\"FALSE\" RichText=\"FALSE\" AppendOnly=\"FALSE\" NumLines=\"6\" />"
+        },
+        {
+          "name": "CurrencyNoticeProvenance",
+          "type": "Note",
+          "required": false,
+          "indexed": false,
+          "unique": false,
+          "xml": "<Field Type=\"Note\" Name=\"CurrencyNoticeProvenance\" StaticName=\"CurrencyNoticeProvenance\" DisplayName=\"CurrencyNoticeProvenance\" Required=\"FALSE\" RichText=\"FALSE\" AppendOnly=\"FALSE\" NumLines=\"6\" />"
+        },
+        {
+          "name": "CurrencyReviewEvidence",
+          "type": "Note",
+          "required": false,
+          "indexed": false,
+          "unique": false,
+          "xml": "<Field Type=\"Note\" Name=\"CurrencyReviewEvidence\" StaticName=\"CurrencyReviewEvidence\" DisplayName=\"CurrencyReviewEvidence\" Required=\"FALSE\" RichText=\"FALSE\" AppendOnly=\"FALSE\" NumLines=\"6\" />"
         }
       ],
       "validationFormula": "",
