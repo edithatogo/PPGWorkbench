@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "companionVersion": "1.0.0",
-  "productionSolutionVersion": "0.2.1.0",
+  "productionSolutionVersion": "0.2.1.1",
   "wholeProductInstallerVersion": "1.0.4",
   "solutionInventory": {
-    "workflows": 35,
+    "workflows": 34,
     "connectionReferences": 5,
     "environmentVariableDefinitions": 9,
     "authoringMode": "unmanaged",
