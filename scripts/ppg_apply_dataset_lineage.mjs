@@ -36,6 +36,7 @@ const fields = {
   WriteFlows: "Note",
   BindingStatus: "Text",
 };
+if (plan.fictionalRunReads?.length) fields.ObservedReadFlows = "Note";
 const schema = await c.all(base + "/fields?$select=InternalName,TypeAsString");
 for (const [name, type] of Object.entries(fields)) {
   const existing = schema.find((f) => f.InternalName === name);
@@ -69,6 +70,7 @@ const viewFields = [
   "DatasetScope",
   "DatasetUrl",
 ];
+if (fields.ObservedReadFlows) viewFields.push("ObservedReadFlows");
 const views = await c.all(base + "/views");
 if (!views.some((v) => v.Title === "Used by")) {
   await send("view", base + "/views/add", {
@@ -85,7 +87,19 @@ if (!views.some((v) => v.Title === "Used by")) {
   });
 }
 const view = await c.get(base + "/views/getbytitle('Used by')");
-const columns = await c.get(base + "/views/getbytitle('Used by')/ViewFields");
+const viewRoute = base + "/views/getbytitle('Used by')/ViewFields";
+let columns = await c.get(viewRoute);
+if (
+  fields.ObservedReadFlows &&
+  !(columns.Items ?? columns.value ?? []).includes("ObservedReadFlows")
+) {
+  await send(
+    "observed-reads-view-field",
+    viewRoute + "/addviewfield('ObservedReadFlows')",
+    {},
+  );
+  columns = await c.get(viewRoute);
+}
 if (
   !viewFields.every((k) => (columns.Items ?? columns.value ?? []).includes(k))
 ) throw Error("View readback mismatch: " + Object.keys(columns));

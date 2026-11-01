@@ -1,8 +1,10 @@
 """Build a private dataset-use manifest from an extracted solution and catalogue receipt."""
 if __package__:
     from .ppg_binding_resolution import action_binding
+    from .ppg_run_read_evidence import apply_run_reads
 else:
     from ppg_binding_resolution import action_binding
+    from ppg_run_read_evidence import apply_run_reads
 import argparse
 import os
 import json
@@ -190,7 +192,10 @@ def build(export, records, overrides, provenance=None, bindings=None):
             row['BindingStatus'] += '; ' + note
         for field in ('ReadFlows','WriteFlows'):
             row[field] = '\n'.join(sorted(row[field])) or None
-    return dict(flowCount=flow_count, rows=rows, unresolvedActions=gaps, resolvedActions=resolved, runObservations=observed)
+    manifest = dict(flowCount=flow_count, rows=rows, unresolvedActions=gaps, resolvedActions=resolved, runObservations=observed)
+    if bindings:
+        apply_run_reads(manifest, names, bindings.get("fictionalRunReads", []), bindings.get("externalDatasets", {}))
+    return manifest
 
 
 if __name__ == '__main__':
