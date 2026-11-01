@@ -44,3 +44,9 @@ Optional `productUse` maps physical dataset IDs to concise descriptions of docum
 The output separates resolved actions, selected-run observations and remaining unknown targets. A CLI writer belongs in BindingStatus. The flow columns are reserved for flow bindings.
 
 For a confirmed parent library outside the product catalogue, record its physical ID and verified name in `externalDatasets`. Other missing parents stay on the unresolved action register, including a move that has only one catalogued endpoint.
+
+### Recover a destination from fictional run history
+
+For each unresolved lifecycle GET, use the exported workflow ID to list its existing runs. Select a successful run and a successful action under that exact workflow and run ID. Read the action's evaluated connector inputs, then look up the selected file and its parent library using the bound SharePoint client. A similar workflow name or a skipped action cannot establish a read. Retain the run/action identities, evaluated URL and native parent readback privately. Record whether the run chose a file ID or a path. An ID lookup identifies its parent at readback time if the file has since moved.
+
+Supply these observations in the private bindings file under `fictionalRunReads`. Each observation contains `flowId`, `flow`, `action`, `run`, `runStatus`, `actionStatus`, `method`, `fileId` and `dataset`. The CLI accepts successful GETs for unresolved fictional actions and checks the parent against the catalogue or its explicit external dataset register. The manifest retains individual observations and the Used by view shows **ObservedReadFlows** for catalogued parents. **ReadFlows** continues to describe definition-level dependencies. Two different requests can choose different files and parents.

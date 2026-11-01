@@ -37,6 +37,11 @@ const fields = {
   BindingStatus: "Text",
 };
 const schema = await c.all(base + "/fields?$select=InternalName,TypeAsString");
+if (
+  plan.fictionalRunReads?.length ||
+  schema.some((f) => f.InternalName === "ObservedReadFlows") ||
+  Object.values(prior).some((row) => Object.hasOwn(row, "ObservedReadFlows"))
+) fields.ObservedReadFlows = "Note";
 for (const [name, type] of Object.entries(fields)) {
   const existing = schema.find((f) => f.InternalName === name);
   if (existing && existing.TypeAsString !== type) {
@@ -69,6 +74,7 @@ const viewFields = [
   "DatasetScope",
   "DatasetUrl",
 ];
+if (fields.ObservedReadFlows) viewFields.push("ObservedReadFlows");
 const views = await c.all(base + "/views");
 if (!views.some((v) => v.Title === "Used by")) {
   await send("view", base + "/views/add", {
@@ -85,10 +91,23 @@ if (!views.some((v) => v.Title === "Used by")) {
   });
 }
 const view = await c.get(base + "/views/getbytitle('Used by')");
-const columns = await c.get(base + "/views/getbytitle('Used by')/ViewFields");
+const viewRoute = base + "/views/getbytitle('Used by')/ViewFields";
+let columns = await c.get(viewRoute);
 if (
-  !viewFields.every((k) => (columns.Items ?? columns.value ?? []).includes(k))
-) throw Error("View readback mismatch: " + Object.keys(columns));
+  fields.ObservedReadFlows &&
+  !(columns.Items ?? columns.value ?? []).includes("ObservedReadFlows")
+) {
+  await send(
+    "observed-reads-view-field",
+    viewRoute + "/addviewfield('ObservedReadFlows')",
+    {},
+  );
+  columns = await c.get(viewRoute);
+}
+const missing = viewFields.filter((k) =>
+  !(columns.Items ?? columns.value ?? []).includes(k)
+);
+if (missing.length) throw Error("Missing view fields: " + missing.join(", "));
 async function read() {
   const rows = [];
   let route = base + "/items?$select=Id,DatasetId," +
@@ -122,7 +141,7 @@ function compare(rows, phase = "preflight") {
           "Existing catalogue value requires reconciliation " + r.Id + " " + k,
         );
       }
-      patch[k] = want[k];
+      patch[k] = want[k] ?? null;
     }
     if (Object.keys(patch).length) changes.push({ r, patch });
   }
