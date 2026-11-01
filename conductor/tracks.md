@@ -4,3 +4,5 @@
   *Link: [./tracks/python315_qualification_20261023/index.md](./tracks/python315_qualification_20261023/index.md)*
 
 - [x] **Dataset roles, source provenance and flow use.** The portable CLI builds a private use manifest and provisions the SharePoint Used by view. Installation-specific results and unresolved bindings stay with each deployment. [Track outcome and business roadmap](../docs/dataset-use-and-roadmap.md)
+
+- [x] **Production writer and product binding reconciliation.** Resolve file parents, conditional writes and moves. Record native-form and CLI use separately from solution-flow membership; retain request-dependent destinations in the private action register. [Operating guidance](../docs/dataset-use-and-roadmap.md)
