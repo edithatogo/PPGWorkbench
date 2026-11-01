@@ -60,4 +60,4 @@ def build(seed, bindings):
         "read_draft":http(page+"?$select=CanvasContent1","write_report"),
         "verify_draft":{"type":"If","runAfter":after("read_draft"),"expression":"@equals(body('read_draft')?['d']?['CanvasContent1'],outputs('plan')?['canvas'])","actions":{
             "publish":http(file+"/Publish(comment='Currency coverage')",method="POST")},"else":{"actions":{"changed_draft":{"type":"Terminate","inputs":{"runStatus":"Failed","runError":{"code":"PageChanged","message":"Reconcile coverage draft"}}}}}}}}
-    return {"properties":props}
+    return {**copy.deepcopy(seed),"properties":props}
