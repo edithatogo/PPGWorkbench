@@ -82,7 +82,10 @@ def build(export, records, overrides, provenance=None):
     flow_count = 0
     for path in sorted((export/'Workflows').glob('*.json')):
         flow_count += 1
-        flow = names[GUID.findall(path.name)[-1].lower()]
+        guids = GUID.findall(path.name)
+        flow = names.get(guids[-1].lower()) if guids else None
+        if not flow:
+            raise ValueError(f'Cannot identify exported workflow {path.name}')
         actions = list(nodes(json.loads(path.read_text())['properties']['definition']))
         sources = defaultdict(list)
         for name, action in actions:
@@ -135,7 +138,7 @@ def build(export, records, overrides, provenance=None):
                 for ident in matches:
                     rows[ident][direction].add(flow)
             else:
-                gaps.append({'flow':flow,'action':name,'operation':op,'reason':'External, dynamic, unsupported or uncatalogued target'})
+                gaps.append({'flow':flow,'action':name,'operation':op,'reason':('Unclassified connector operation' if not direction else 'External, dynamic or uncatalogued target')})
     if not flow_count or not rows:
         raise ValueError('Empty solution or directory')
     for row in rows.values():

@@ -93,18 +93,23 @@ async function read() {
   const rows = [];
   let route = base + "/items?$select=Id,DatasetId," +
     Object.keys(fields).join(",") + "&$top=500";
+  const seen = new Set();
   while (route) {
+    if (seen.has(route)) throw Error("Repeated inventory page");
+    seen.add(route);
     const page = await c.item(route);
-    rows.push(...page.results);
-    route = page.__next;
+    const records = page.results ?? page.value;
+    if (!Array.isArray(records)) throw Error("Invalid inventory page");
+    rows.push(...records);
+    route = page.__next ?? page["@odata.nextLink"] ?? page["odata.nextLink"];
   }
   return rows;
 }
-function compare(rows) {
+function compare(rows, phase = "preflight") {
   if (
     rows.length !== Object.keys(plan.rows).length ||
     new Set(rows.map((r) => r.DatasetId.toLowerCase())).size !== rows.length
-  ) throw Error("Inventory changed");
+  ) throw Error("Inventory changed during " + phase);
   const changes = [];
   for (const r of rows) {
     const want = plan.rows[r.DatasetId.toLowerCase()];
@@ -128,7 +133,7 @@ for (let i = 0; i < changes.length; i += 20) {
   const parts = [], group = changes.slice(i, i + 20);
   const boundary = "batch_" + hash(JSON.stringify(group)).slice(0, 24);
   for (const { r, patch } of group) {
-    const tag = r.__metadata?.etag;
+    const tag = r.__metadata?.etag ?? r["@odata.etag"] ?? r["odata.etag"];
     if (!/^"\d+"$/.test(tag)) throw Error("Missing row version " + r.Id);
     const cs = "changeset_" + r.Id;
     parts.push(
@@ -165,7 +170,7 @@ for (let i = 0; i < changes.length; i += 20) {
   if (i + 20 < changes.length) await new Promise((r) => setTimeout(r, 4000));
 }
 const rows = await read();
-if (compare(rows).length) throw Error("Row readback mismatch");
+if (compare(rows, "readback").length) throw Error("Row readback mismatch");
 fs.writeFileSync(
   receipt,
   JSON.stringify({
