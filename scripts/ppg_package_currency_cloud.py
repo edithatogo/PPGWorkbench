@@ -28,8 +28,10 @@ def package(export, seed_name, bindings, version, destination):
         ET.SubElement(roots,'RootComponent', type='29', id='{'+flow_id+'}', behavior='0')
         manifest.find('MissingDependencies').clear()
         custom = ET.fromstring(source.read('customizations.xml'))
-        workflow = copy.deepcopy(next(w for w in custom.find('Workflows')
-                                      if w.findtext('JsonFileName') == '/'+seed_path))
+        entries = [w for w in custom.findall('Workflows/Workflow') if w.findtext('JsonFileName') == '/'+seed_path]
+        if len(entries) != 1:
+            raise ValueError(f'Expected exactly one seed workflow for {seed_name!r}')
+        workflow = copy.deepcopy(entries[0])
         for child in custom:
             child.clear()
         title = 'PPG | Policy currency | Match leads and report dispositions'
