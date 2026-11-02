@@ -71,9 +71,24 @@ class FullTextReviewTests(unittest.TestCase):
                 self.lead = original
 
     def test_blocked_source_and_missing_policy_stay_unresolved(self):
-        result = build_review([self.lead], [{"id": 1, "state": "blocked", "blocker": "Denied"}], [], [])
+        result = build_review([self.lead], [{"id": 1, "leadGUID": "fictional-lead", "state": "blocked", "blocker": "Denied"}], [], [])
         self.assertEqual(result["rows"][0]["outcome"], "Unresolved")
         self.assertEqual(result["rows"][0]["noticeBlocker"], "Denied")
+
+    def test_unmatched_notice_identity_is_checked(self):
+        self.notice["leadGUID"] = "other-lead"
+        with self.assertRaises(ValueError):
+            build_review([self.lead], [self.notice], [self.policy], [])
+
+    def test_unselected_policy_coverage_requires_qualified_body(self):
+        for change in ({"state": "blocked"}, {"fullText": False}, {"identityBasis": ""}):
+            with self.subTest(change=change):
+                policy = {**self.policy, **change}
+                result = build_review([self.lead], [self.notice], [policy], [])
+                self.assertEqual(result["rows"][0]["policyIdentitiesAvailable"], 0)
+        self.policy["text"] = "corrupt unselected body"
+        with self.assertRaises(ValueError):
+            build_review([self.lead], [self.notice], [self.policy], [])
 
 
 if __name__ == "__main__":

@@ -80,11 +80,18 @@ def build_review(leads: list[dict], notices: list[dict], policies: list[dict],
             "editionLimitation": policy.get("editionLimitation", "Current authority not established"),
         })
     rows = []
-    covered = len({p["uid"] for p in policies})
+    qualified = []
+    for policy in policies:
+        if policy.get("state") == "retrieved" and policy.get("fullText") is True and policy.get("identityBasis"):
+            checked_body(policy)
+            qualified.append(policy)
+    covered = len({p["uid"] for p in qualified})
     for lead in leads:
         if lead.get("CurrencyMatch") != "Unresolved":
             continue
         notice = notice_by_id.get(lead["Id"], {})
+        if notice and notice.get("leadGUID") != lead["GUID"]:
+            raise ValueError("Notice identity changed for an unmatched lead")
         full = notice.get("state") == "retrieved" and notice.get("fullText", False)
         if full:
             checked_body(notice)
