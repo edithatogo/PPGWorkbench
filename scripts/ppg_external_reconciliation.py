@@ -3,8 +3,11 @@ from __future__ import annotations
 import hashlib
 import re
 from collections import Counter
+from io import BytesIO
 from pathlib import Path
 from urllib.parse import parse_qs, urljoin, urlsplit
+from zipfile import BadZipFile, ZipFile
+from zlib import error as ZlibError
 from bs4 import BeautifulSoup
 
 
@@ -13,6 +16,36 @@ def sha(raw):
 
 
 DEFAULT_REFERENCE_HOSTS = frozenset({'www.safetyandquality.gov.au', 'safetyandquality.gov.au'})
+
+
+def verified_original_capsule(source, original, read_bytes):
+    """Bind a historical source to its exact, byte-preserving ZIP member.
+
+    Read only; never extract files or treat a container/version as an edition.
+    The caller still qualifies the logical document identity independently.
+    """
+    capsule = source.get('originalCapsule')
+    if (not original or not isinstance(capsule, dict)
+            or not isinstance(capsule.get('path'), str) or not capsule['path']
+            or not isinstance(capsule.get('member'), str) or not capsule['member']
+            or not isinstance(capsule.get('sha256'), str)
+            or not re.fullmatch(r'[a-f0-9]{64}', capsule.get('sha256') or '')):
+        return None
+    try:
+        raw = read_bytes(capsule['path'])
+        if (not isinstance(raw, (bytes, bytearray)) or len(raw) > 128 * 1024 * 1024
+                or sha(raw) != capsule['sha256']):
+            return None
+        with ZipFile(BytesIO(raw)) as archive:
+            members = [i for i in archive.infolist() if i.filename == capsule['member']]
+            if (len(members) != 1 or members[0].file_size != len(original)
+                    or archive.read(members[0]) != original):
+                return None
+    except (OSError, KeyError, ValueError, RuntimeError, NotImplementedError, BadZipFile, EOFError, ZlibError):
+        return None
+    return {'sourceIdentityState': 'verified_source_identity',
+            'originalCapsuleSHA256': capsule['sha256'],
+            'originalCapsuleMember': capsule['member']}
 
 
 def pdf_uri_inspection(annotation_output, original_sha256, *, decode_url_wrappers=False):
@@ -124,7 +157,7 @@ def reference_scope(catalogue, sources, publications, *, read_bytes,
         if identity in seen:
             raise ValueError('Duplicate retained source association')
         seen.add(identity)
-        reason = None
+        reason, capsule_evidence = None, None
         try:
             original = read_bytes(s['originalPath'])
             text_raw = read_bytes(s['textPath'])
@@ -133,6 +166,10 @@ def reference_scope(catalogue, sources, publications, *, read_bytes,
                 reason = 'original_or_text_hash_binding_differs'
             elif s['extractionError'] or len(text.strip()) < 100:
                 reason = 'extraction_error_or_insufficient_text'
+            elif s['identityState'] == 'verified_source_identity':
+                capsule_evidence = verified_original_capsule(s, original, read_bytes)
+                if capsule_evidence is None:
+                    reason = 'original_capsule_binding_unqualified'
             elif s['identityState'] not in {'exact_register_identifier', 'qualified_edition_variant'}:
                 reason = 'identity_association_unqualified'
         except (OSError, UnicodeError):
@@ -181,6 +218,8 @@ def reference_scope(catalogue, sources, publications, *, read_bytes,
                 'versionConflict': s['versionConflict'], 'clinicalApplicabilityAccepted': False})
             if is_url:
                 occurrences[-1]['urlMatchRecordKeys'] = sorted(url_records.get(locator, set()))
+            if capsule_evidence:
+                occurrences[-1].update(capsule_evidence)
             if s.get('inspectionKind') == 'pdf-uri-annotations':
                 occurrences[-1].update(inspectionKind='pdf-uri-annotations',
                     annotationOutputSHA256=s['annotationOutputSHA256'],

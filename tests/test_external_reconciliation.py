@@ -30,6 +30,82 @@ class ReferenceScopeTests(unittest.TestCase):
         self.assertEqual(r['occurrenceCount'],0);self.assertEqual(len(r['heldSources']),1)
         self.assertEqual(r['sourceStates'],{'some-retained-text-held':1,'no-retained-source':1})
 
+    def capsule_case(self, *, member_bytes=None, duplicate=False):
+        from io import BytesIO
+        from zipfile import ZipFile
+        s,p,files=self.setup_case();out=BytesIO()
+        with ZipFile(out,'w') as archive:
+            archive.writestr('historical.doc', files['original'] if member_bytes is None else member_bytes)
+            if duplicate:
+                with self.assertWarns(UserWarning):
+                    archive.writestr('historical.doc',files['original'])
+        files['capsule']=out.getvalue()
+        s.update(identityState='verified_source_identity',appliesToRequestedEdition=False,
+                 originalCapsule={'path':'capsule','sha256':hashlib.sha256(files['capsule']).hexdigest(),'member':'historical.doc'})
+        return s,p,files
+
+    def test_verified_historical_capsule_retains_identity_without_adopting_edition(self):
+        s,p,files=self.capsule_case()
+        r=reference_scope([{'DocumentUID':'fictional'}],[s],[p],read_bytes=files.__getitem__)
+        self.assertEqual(r['occurrenceCount'],1);o=r['occurrences'][0]
+        self.assertEqual(o['sourceIdentityState'],'verified_source_identity')
+        self.assertEqual(o['originalCapsuleSHA256'],s['originalCapsule']['sha256'])
+        self.assertEqual(o['originalCapsuleMember'],'historical.doc')
+        self.assertEqual(o['resolution'],'publication-only');self.assertIsNone(o['editionKey'])
+        self.assertTrue(o['versionConflict']);self.assertFalse(o['clinicalApplicabilityAccepted'])
+        self.assertEqual(r['nativeWrites'],0);self.assertFalse(r['completeExternalReferenceCoverage'])
+
+    def test_capsule_provenance_does_not_leak_to_following_plain_source(self):
+        capsule,p,files=self.capsule_case()
+        plain,_,_=self.setup_case();plain['documentUID']='plain'
+        r=reference_scope([{'DocumentUID':'fictional'},{'DocumentUID':'plain'}],
+                          [capsule,plain],[p],read_bytes=files.__getitem__)
+        self.assertEqual(r['occurrenceCount'],2)
+        self.assertIn('originalCapsuleSHA256',r['occurrences'][0])
+        for field in ('sourceIdentityState','originalCapsuleSHA256','originalCapsuleMember'):
+            self.assertNotIn(field,r['occurrences'][1])
+
+    def test_corrupt_compressed_member_is_held_and_next_source_is_inspected(self):
+        from io import BytesIO
+        from zipfile import ZIP_DEFLATED, ZipFile
+        s,p,files=self.capsule_case();out=BytesIO()
+        with ZipFile(out,'w',compression=ZIP_DEFLATED) as archive:
+            archive.writestr('historical.doc',files['original'])
+        raw=bytearray(out.getvalue())
+        data_start=30+int.from_bytes(raw[26:28],'little')+int.from_bytes(raw[28:30],'little')
+        raw[data_start]=7  # Reserved DEFLATE block type, with intact ZIP headers.
+        files['capsule']=bytes(raw)
+        s['originalCapsule']['sha256']=hashlib.sha256(files['capsule']).hexdigest()
+        plain,_,_=self.setup_case();plain['documentUID']='plain'
+        r=reference_scope([{'DocumentUID':'fictional'},{'DocumentUID':'plain'}],
+                          [s,plain],[p],read_bytes=files.__getitem__)
+        self.assertEqual(r['heldSources'][0]['reason'],'original_capsule_binding_unqualified')
+        self.assertEqual(r['occurrenceCount'],1)
+        self.assertEqual(r['occurrences'][0]['documentUID'],'plain')
+
+    def test_unbound_or_ambiguous_original_capsules_stay_held(self):
+        import copy
+        valid=self.capsule_case()
+        variants=[]
+        for field,value in [('sha256','0'*64),('sha256',1),('member','missing.doc'),('path','missing')]:
+            s,p,files=copy.deepcopy(valid);s['originalCapsule'][field]=value;variants.append((s,p,files))
+        s,p,files=copy.deepcopy(valid);del s['originalCapsule'];variants.append((s,p,files))
+        variants.extend([self.capsule_case(member_bytes=b'another original'),self.capsule_case(duplicate=True)])
+        s,p,files=copy.deepcopy(valid);files['capsule']=b'not a ZIP';s['originalCapsule']['sha256']=hashlib.sha256(files['capsule']).hexdigest();variants.append((s,p,files))
+        for s,p,files in variants:
+            with self.subTest(capsule=s.get('originalCapsule')):
+                r=reference_scope([{'DocumentUID':'fictional'}],[s],[p],read_bytes=files.__getitem__)
+                self.assertEqual(r['occurrenceCount'],0)
+                self.assertEqual(r['heldSources'][0]['reason'],'original_capsule_binding_unqualified')
+
+    def test_capsule_proof_does_not_bypass_text_or_identity_holds(self):
+        s,p,files=self.capsule_case();files['text']+=b'changed'
+        r=reference_scope([{'DocumentUID':'fictional'}],[s],[p],read_bytes=files.__getitem__)
+        self.assertEqual(r['heldSources'][0]['reason'],'original_or_text_hash_binding_differs')
+        s,p,files=self.capsule_case();s['identityState']='unreviewed'
+        r=reference_scope([{'DocumentUID':'fictional'}],[s],[p],read_bytes=files.__getitem__)
+        self.assertEqual(r['occurrenceCount'],0);self.assertEqual(r['heldSources'][0]['reason'],'identity_association_unqualified')
+
     def test_duplicate_identity_or_source_refuses(self):
         s,p,files=self.setup_case()
         for cat,sources in [([{'DocumentUID':'fictional'}]*2,[s]),([{'DocumentUID':'fictional'}],[s,s])]:
@@ -173,6 +249,27 @@ class ReferenceScopeTests(unittest.TestCase):
         with self.assertRaises(ValueError):group_pdf_uri_occurrences(bad)
         bad=copy.deepcopy(r);bad['occurrenceCount']=3
         with self.assertRaises(ValueError):group_pdf_uri_occurrences(bad)
+
+    def test_cli_capsule_read_stays_within_source_root(self):
+        import tempfile,json,contextlib,io
+        from pathlib import Path
+        from scripts.ppg_external_reconciliation import main
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);approved=root/'approved';approved.mkdir()
+            s,p,files=self.capsule_case()
+            (approved/'original').write_bytes(files['original']);(approved/'text').write_bytes(files['text'])
+            (root/'capsule').write_bytes(files['capsule'])
+            s.update(originalPath=str(approved/'original'),textPath=str(approved/'text'))
+            s['originalCapsule']['path']=str(root/'capsule')
+            (root/'bundle.json').write_text(json.dumps({'records':[dict(p,requiredCapture=False)]}))
+            (root/'local.json').write_text(json.dumps({'catalogue':[{'DocumentUID':'fictional'}],'sources':[s]}))
+            args=['--bundle',str(root/'bundle.json'),'--local-inputs',str(root/'local.json'),
+                  '--capture-root',str(root),'--source-root',str(approved),'--output-dir',str(root/'out')]
+            with contextlib.redirect_stdout(io.StringIO()):main(args)
+            selected=json.loads((root/'out/references.json').read_text())
+            self.assertEqual(selected['occurrenceCount'],0)
+            self.assertEqual(selected['heldSources'][0]['reason'],'original_capsule_binding_unqualified')
+            self.assertEqual(selected['nativeWrites'],0)
 
     def test_cli_manifest_is_create_only_and_binds_inputs(self):
         import tempfile,json,contextlib,io

@@ -43,6 +43,24 @@ Use the installation's existing guarded writer and exact source bindings for
 native persistence. Preserve earlier records and protected no-retrieval decisions;
 verify the selected delta once and require zero-create unchanged replay.
 
+## Originals retained inside ZIP capsules
+
+An independently qualified historical document identity can use
+`identityState: verified_source_identity` with an `originalCapsule` object
+containing its private `path`, SHA256 `sha256`, and exact original `member` name.
+The extractor verifies the container hash and a single matching member whose
+bytes equal the separately pinned original. Missing, changed, malformed or
+ambiguous capsules stay held; the original/text hash checks still apply.
+The CLI source-root boundary also applies to capsule reads. Nothing is extracted
+to disk and no URL is fetched.
+
+Occurrences retain `sourceIdentityState`, `originalCapsuleSHA256` and
+`originalCapsuleMember` beside the original/text hashes and offsets. Preserve
+those fields when preparing native records. This supports literal-reference
+evidence from historical or working sources; it does not establish the requested
+edition, publication, applicability, original-reader rendering fidelity or current
+authority. Keep those uncertainties explicit.
+
 ## PDF links omitted from body text
 
 Some retained PDFs store publisher links in URI annotations. Inspect the verified
