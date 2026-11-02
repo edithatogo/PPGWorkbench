@@ -52,6 +52,15 @@ class FullTextReviewTests(unittest.TestCase):
                     self.run_review()
                 self.notice = original
 
+    def test_unknown_selection_references_are_controlled_errors(self):
+        for missing in ("lead", "notice", "policy"):
+            with self.subTest(missing=missing):
+                with self.assertRaises(ValueError):
+                    build_review([] if missing == "lead" else [self.lead],
+                                 [] if missing == "notice" else [self.notice],
+                                 [] if missing == "policy" else [self.policy],
+                                 [self.selection])
+
     def test_disposition_and_existing_candidates_preserved(self):
         for change in ({"CurrencyDisposition": "No impact"}, {"CurrencyMatch": "Candidate — review"}):
             with self.subTest(change=change):

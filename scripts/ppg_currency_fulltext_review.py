@@ -44,13 +44,19 @@ def build_review(leads: list[dict], notices: list[dict], policies: list[dict],
     seen = set()
     for selection in selections:
         lead_id = selection["leadId"]
-        lead = lead_by_id[lead_id]
+        lead = lead_by_id.get(lead_id)
+        if lead is None:
+            raise ValueError("Selection references an unknown lead")
         if lead.get("CurrencyMatch") != "Unresolved" or lead.get("CurrencyDisposition"):
             raise ValueError("Selection would replace a candidate or human disposition")
-        notice = notice_by_id[lead_id]
+        notice = notice_by_id.get(lead_id)
+        if notice is None:
+            raise ValueError("Selected lead has no notice evidence")
         if notice.get("leadGUID") != lead["GUID"] or selection["noticeTextSHA256"] != notice.get("textSHA256"):
             raise ValueError("Notice identity or reviewed preimage changed")
-        policy = policy_by_key[(selection["policyUID"], selection["policySHA256"])]
+        policy = policy_by_key.get((selection["policyUID"], selection["policySHA256"]))
+        if policy is None:
+            raise ValueError("Selection references an unknown policy capture")
         key = (lead_id, policy["uid"])
         if key in seen:
             raise ValueError("Duplicate selected policy identity")
@@ -101,10 +107,13 @@ def main() -> None:
     parser.add_argument("input", type=Path)
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
-    data = json.loads(args.input.read_text())
-    result = build_review(**data)
-    with args.output.open("x") as stream:
-        json.dump(result, stream, ensure_ascii=False)
+    try:
+        data = json.loads(args.input.read_text())
+        result = build_review(**data)
+        with args.output.open("x") as stream:
+            json.dump(result, stream, ensure_ascii=False)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        parser.exit(2, f"Cannot build full-text review packet: {exc}\n")
 
 
 if __name__ == "__main__":
