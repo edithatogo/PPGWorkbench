@@ -57,6 +57,11 @@ def transform(document, manifest):
     raw = "body('Read_current')?['d']?['results']"
     final = raw.replace("Read_current", "Read_current_after")
     # Apply to the existing importer, preserving its comparisons, concurrency and writer.
+    date = "first(body('Find_native'))?['sourceNextReviewDateRaw']"
+    scalar = f"float(json({date}))"
+    guarded = f"if(empty(string({date})),null,{scalar})"
+    if guarded not in json.dumps(actions["Guard_input"]):
+        replace(actions["Guard_input"], scalar, guarded)
     if "Registry_manifest" in actions:
         if actions["Registry_manifest"]["inputs"] == manifest:
             return result
