@@ -1,4 +1,9 @@
 """Prepare a create-only installation baseline from retained accepted identity evidence."""
+if __package__:
+    from .ppg_registry_only import checkpoint_registry_only
+else:
+    from ppg_registry_only import checkpoint_registry_only
+
 import argparse
 import hashlib
 import json
@@ -16,8 +21,9 @@ def prepare(rows, checkpoint, candidate):
     ledger = checkpoint.get('identityLedger', {})
     aliases = ledger.get('aliases', [])
     uids = [str(UUID(a['documentUID'])) for a in aliases]
+    registry_only = checkpoint_registry_only(checkpoint, set(uids), rows)
     actual = [str(UUID(r['DocumentUID'])) for r in rows]
-    if not uids or len(set(uids)) != len(uids) or len(set(actual)) != len(actual) or set(uids) != set(actual):
+    if not uids or len(set(uids)) != len(uids) or len(set(actual)) != len(actual) or (set(uids) | registry_only) != set(actual):
         raise ValueError('Exact unique catalogue and ledger identities required')
     operations = candidate.get('operations', [])
     active = [str(UUID(o['DocumentUID'])) for o in operations]
