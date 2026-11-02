@@ -2,6 +2,7 @@
 import argparse
 import copy
 import json
+import os
 from pathlib import Path
 from uuid import UUID
 
@@ -130,7 +131,8 @@ if __name__ == "__main__":
     for name in ("definition", "manifest", "output"):
         parser.add_argument(name, type=Path)
     args = parser.parse_args()
-    with args.output.open("x") as output:
+    fd = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as output:
         json.dump(transform(json.loads(args.definition.read_text()), json.loads(args.manifest.read_text())), output, indent=2)
         output.write("\n")
 
