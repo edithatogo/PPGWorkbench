@@ -272,7 +272,7 @@ class ReferenceScopeTests(unittest.TestCase):
     def test_link_xml_rejects_entities_malformed_boxes_and_duplicate_pages(self):
         from scripts.ppg_external_reconciliation import pdf_link_label_inspection
         raw=self.link_xml()
-        variants=[b'<broken',b'<wrong/>',raw.replace(b'top="10"',b'top="nan"'),
+        variants=[b'<broken',b'<wrong/>',raw.decode().encode('utf-16'),raw.replace(b'top="10"',b'top="nan"'),
                   raw.replace(b'number="13"',b'number="0"'),
                   raw.replace(b'</pdf2xml>',b'<page number="13"/></pdf2xml>'),
                   raw.replace(b'<pdf2xml>',b'<!DOCTYPE x [<!ENTITY x "content">]><pdf2xml>')]
@@ -305,6 +305,22 @@ class ReferenceScopeTests(unittest.TestCase):
             r=json.loads(out.read_text());self.assertTrue(r['originalBindingVerified'])
             self.assertEqual(r['selectedPage'],13);self.assertEqual(out.stat().st_mode&0o777,0o600)
             self.assertEqual(original.read_bytes(),raw);self.assertFalse(seen[0].exists())
+
+    def test_link_label_cli_refuses_unselected_empty_page(self):
+        import tempfile,contextlib,io
+        from pathlib import Path
+        from unittest.mock import patch
+        from scripts.ppg_external_reconciliation import pdf_link_labels_main
+        with tempfile.TemporaryDirectory() as temp:
+            p=Path(temp)/'source.pdf';raw=b'%PDF-1.4 fictional';p.write_bytes(raw)
+            out=Path(temp)/'out.json'
+            def run(command,**kwargs):
+                kwargs['stdout'].write(b'<pdf2xml><page number="14"/></pdf2xml>')
+            with patch('shutil.which',return_value='/fictional/pdftohtml'),patch('subprocess.run',side_effect=run),contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaises(ValueError):pdf_link_labels_main([
+                    '--original',str(p),'--original-sha256',hashlib.sha256(raw).hexdigest(),
+                    '--page','13','--output',str(out)])
+            self.assertFalse(out.exists())
 
     def test_cli_capsule_read_stays_within_source_root(self):
         import tempfile,json,contextlib,io

@@ -57,8 +57,14 @@ def pdf_link_label_inspection(xml_bytes, original_sha256):
             or not re.fullmatch(r'[a-f0-9]{64}', original_sha256)):
         raise ValueError('Bound XML bytes and original SHA256 required')
     # Poppler emits this fixed external DTD declaration. No entities or other DTD.
-    safe = xml_bytes.replace(b'<!DOCTYPE pdf2xml SYSTEM "pdf2xml.dtd">', b'')
-    if re.search(br'<!\s*(?:DOCTYPE|ENTITY)', safe, re.I):
+    try:
+        xml_text = xml_bytes.decode('utf-8')
+    except UnicodeError as error:
+        raise ValueError('UTF-8 Poppler XML required') from error
+    if '\x00' in xml_text:
+        raise ValueError('Unsupported XML encoding')
+    safe = xml_text.replace('<!DOCTYPE pdf2xml SYSTEM "pdf2xml.dtd">', '')
+    if re.search(r'<!\s*(?:DOCTYPE|ENTITY)', safe, re.I):
         raise ValueError('Unsupported XML declaration')
     try:
         root = ET.fromstring(safe)
@@ -103,7 +109,7 @@ def pdf_link_label_inspection(xml_bytes, original_sha256):
                     row, reason='unsupported_or_malformed_URI'))
                 ordinal += 1
     return dict(kind='ppg-pdf-link-label-inspection-v1', originalSHA256=original_sha256,
-                xmlSHA256=sha(xml_bytes), entries=entries, ignoredLinks=ignored,
+                xmlSHA256=sha(xml_bytes), inspectedPages=sorted(seen), entries=entries, ignoredLinks=ignored,
                 originalBindingVerified=False, fullTextReview=False, editionVerified=False,
                 nativeWrites=0, retrievals=0)
 
@@ -146,7 +152,7 @@ def pdf_link_labels_main(argv=None):
             captured.seek(0)
             xml_bytes = captured.read(8 * 1024 * 1024 + 1)
     result = pdf_link_label_inspection(xml_bytes, args.original_sha256)
-    if any(row['page'] != args.page for row in result['entries'] + result['ignoredLinks']):
+    if result['inspectedPages'] != [args.page]:
         raise ValueError('Processor returned an unselected page')
     result.update(originalBindingVerified=True, selectedPage=args.page,
                   processor='Poppler pdftohtml; immutable original copy; images excluded',
