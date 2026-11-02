@@ -122,6 +122,7 @@ def pdf_link_labels_main(argv=None):
     import shutil
     import subprocess
     import tempfile
+    import threading
     parser = argparse.ArgumentParser(description=pdf_link_labels_main.__doc__)
     parser.add_argument('--original', type=Path, required=True)
     parser.add_argument('--original-sha256', required=True)
@@ -130,9 +131,10 @@ def pdf_link_labels_main(argv=None):
     args = parser.parse_args(argv)
     if args.output.exists() or not 1 <= args.page <= 10000:
         raise ValueError('New private output and bounded page required')
-    if args.original.stat().st_size > 128 * 1024 * 1024:
+    with args.original.open('rb') as source:
+        original = source.read(128 * 1024 * 1024 + 1)
+    if len(original) > 128 * 1024 * 1024:
         raise ValueError('Original PDF exceeds bound')
-    original = args.original.read_bytes()
     if not original.startswith(b'%PDF-') or sha(original) != args.original_sha256:
         raise ValueError('Original PDF differs from expected hash')
     executable = shutil.which('pdftohtml')
@@ -145,18 +147,27 @@ def pdf_link_labels_main(argv=None):
             stream.write(original)
         command = [executable, '-f', str(args.page), '-l', str(args.page),
                    '-xml', '-hidden', '-i', '-stdout', str(frozen)]
-        with (Path(temp) / 'labels.xml').open('w+b') as captured:
-            subprocess.run(command, check=True, stdout=captured, stderr=subprocess.DEVNULL, timeout=60)
-            if captured.tell() > 8 * 1024 * 1024:
-                raise ValueError('PDF link XML exceeds bound')
-            captured.seek(0)
-            xml_bytes = captured.read(8 * 1024 * 1024 + 1)
+        with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) as process:
+            timer = threading.Timer(60, process.kill)
+            timer.daemon = True
+            try:
+                timer.start()
+                xml_bytes = process.stdout.read(8 * 1024 * 1024 + 1)
+                if len(xml_bytes) > 8 * 1024 * 1024:
+                    raise ValueError('PDF link XML exceeds bound')
+                if process.wait() != 0:
+                    raise ValueError('PDF link extraction failed or timed out')
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                timer.cancel()
+                timer.join()
+
     result = pdf_link_label_inspection(xml_bytes, args.original_sha256)
     if result['inspectedPages'] != [args.page]:
         raise ValueError('Processor returned an unselected page')
     result.update(originalBindingVerified=True, selectedPage=args.page,
-                  processor='Poppler pdftohtml; immutable original copy; images excluded',
-                  processorExecutable=executable)
+                  processor='Poppler pdftohtml; immutable original copy; images excluded')
     fd = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, 'w') as stream:
         json.dump(result, stream, ensure_ascii=False, indent=2)

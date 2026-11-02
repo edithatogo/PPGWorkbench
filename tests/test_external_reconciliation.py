@@ -285,20 +285,23 @@ class ReferenceScopeTests(unittest.TestCase):
     def test_link_label_cli_uses_private_frozen_copy_and_create_only_output(self):
         import tempfile,contextlib,io
         from pathlib import Path
-        from unittest.mock import patch
+        from unittest.mock import patch,MagicMock
         from scripts.ppg_external_reconciliation import pdf_link_labels_main
         raw=b'%PDF-1.4 fictional source';seen=[]
         with tempfile.TemporaryDirectory() as temp:
             original=Path(temp)/'original.pdf';original.write_bytes(raw);out=Path(temp)/'links.json'
             args=['--original',str(original),'--original-sha256',hashlib.sha256(raw).hexdigest(),
                   '--page','13','--output',str(out)]
-            def run(command,**kwargs):
+            def popen(command,**kwargs):
                 frozen=Path(command[-1]);seen.append(frozen)
                 self.assertNotEqual(frozen,original);self.assertEqual(frozen.read_bytes(),raw)
                 self.assertEqual(frozen.stat().st_mode&0o777,0o600)
-                self.assertIn('-i',command);self.assertEqual(kwargs['timeout'],60)
-                kwargs['stdout'].write(self.link_xml())
-            with patch('shutil.which',return_value='/fictional/pdftohtml'),patch('subprocess.run',side_effect=run),contextlib.redirect_stdout(io.StringIO()):
+                self.assertIn('-i',command)
+                process=MagicMock();process.__enter__.return_value=process
+                process.stdout=io.BytesIO(self.link_xml());process.wait.return_value=0
+                process.poll.return_value=0
+                return process
+            with patch('shutil.which',return_value='/fictional/pdftohtml'),patch('subprocess.Popen',side_effect=popen),contextlib.redirect_stdout(io.StringIO()):
                 pdf_link_labels_main(args)
                 with self.assertRaises(ValueError):pdf_link_labels_main(args)
             import json
@@ -309,18 +312,40 @@ class ReferenceScopeTests(unittest.TestCase):
     def test_link_label_cli_refuses_unselected_empty_page(self):
         import tempfile,contextlib,io
         from pathlib import Path
-        from unittest.mock import patch
+        from unittest.mock import patch,MagicMock
         from scripts.ppg_external_reconciliation import pdf_link_labels_main
         with tempfile.TemporaryDirectory() as temp:
             p=Path(temp)/'source.pdf';raw=b'%PDF-1.4 fictional';p.write_bytes(raw)
             out=Path(temp)/'out.json'
-            def run(command,**kwargs):
-                kwargs['stdout'].write(b'<pdf2xml><page number="14"/></pdf2xml>')
-            with patch('shutil.which',return_value='/fictional/pdftohtml'),patch('subprocess.run',side_effect=run),contextlib.redirect_stdout(io.StringIO()):
+            def popen(command,**kwargs):
+                process=MagicMock();process.__enter__.return_value=process
+                process.stdout=io.BytesIO(b'<pdf2xml><page number="14"/></pdf2xml>')
+                process.wait.return_value=0;process.poll.return_value=0
+                return process
+            with patch('shutil.which',return_value='/fictional/pdftohtml'),patch('subprocess.Popen',side_effect=popen),contextlib.redirect_stdout(io.StringIO()):
                 with self.assertRaises(ValueError):pdf_link_labels_main([
                     '--original',str(p),'--original-sha256',hashlib.sha256(raw).hexdigest(),
                     '--page','13','--output',str(out)])
             self.assertFalse(out.exists())
+
+    def test_link_cli_stops_oversize_output_and_rejects_processor_failure(self):
+        import tempfile,contextlib,io
+        from pathlib import Path
+        from unittest.mock import patch,MagicMock
+        from scripts.ppg_external_reconciliation import pdf_link_labels_main
+        with tempfile.TemporaryDirectory() as temp:
+            p=Path(temp)/'source.pdf';raw=b'%PDF-1.4 fictional';p.write_bytes(raw)
+            for data,status,running in [(b'x'*(8*1024*1024+1),0,True),(self.link_xml(),2,False)]:
+                process=MagicMock();process.__enter__.return_value=process
+                process.stdout=io.BytesIO(data);process.wait.return_value=status
+                process.poll.return_value=None if running else status
+                out=Path(temp)/'out.json'
+                with patch('shutil.which',return_value='/fictional/pdftohtml'),patch('subprocess.Popen',return_value=process),contextlib.redirect_stdout(io.StringIO()):
+                    with self.assertRaises(ValueError):pdf_link_labels_main([
+                        '--original',str(p),'--original-sha256',hashlib.sha256(raw).hexdigest(),
+                        '--page','13','--output',str(out)])
+                self.assertFalse(out.exists())
+                if running:process.kill.assert_called_once()
 
     def test_cli_capsule_read_stays_within_source_root(self):
         import tempfile,json,contextlib,io
