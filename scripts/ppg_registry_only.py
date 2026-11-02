@@ -131,10 +131,23 @@ if __name__ == "__main__":
     for name in ("definition", "manifest", "output"):
         parser.add_argument(name, type=Path)
     args = parser.parse_args()
+    rendered = json.dumps(transform(json.loads(args.definition.read_text()),
+                                    json.loads(args.manifest.read_text())), indent=2) + "\n"
     fd = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as output:
-        json.dump(transform(json.loads(args.definition.read_text()), json.loads(args.manifest.read_text())), output, indent=2)
-        output.write("\n")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as output:
+            fd = None
+            output.write(rendered)
+            output.flush()
+            os.fsync(output.fileno())
+    except BaseException:
+        if fd is not None:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+        args.output.unlink(missing_ok=True)
+        raise
 
 
 def checkpoint_registry_only(checkpoint, workbook_uids, catalogue=None):
