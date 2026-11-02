@@ -26,10 +26,11 @@ async function main() {
     fs.writeFileSync(fd, JSON.stringify({pid:process.pid,started:new Date().toISOString()}));
     if (fs.existsSync(path.join(output,'pending.json')) && !verifyOnly)
       throw Error('Pending write: reconcile against native state before another deployment');
-    const adapter = await connect(settings,load(fromSettings(settings.binding)),output);
+    const binding = load(fromSettings(settings.binding));
+    const adapter = await connect(settings,binding,output);
     const api = settings.site + '/_api/web';
     const current = await adapter.read(api+'/currentuser?$select=Email');
-    assert.equal(current.Email?.toLowerCase(),load(fromSettings(settings.binding)).identity.username.toLowerCase(),'Unexpected site operator');
+    assert.equal(current.Email?.toLowerCase(),binding.identity.username.toLowerCase(),'Unexpected site operator');
     const list = id => {
       if (!/^[\da-f]{8}(-[\da-f]{4}){3}-[\da-f]{12}$/i.test(id)) throw Error('Invalid destination list ID');
       return api + "/lists(guid'" + id + "')";
