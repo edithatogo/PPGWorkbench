@@ -250,6 +250,103 @@ class ReferenceScopeTests(unittest.TestCase):
         bad=copy.deepcopy(r);bad['occurrenceCount']=3
         with self.assertRaises(ValueError):group_pdf_uri_occurrences(bad)
 
+    def link_xml(self):
+        return b'''<?xml version="1.0"?><!DOCTYPE pdf2xml SYSTEM "pdf2xml.dtd">
+<pdf2xml><page number="13">
+<text top="10" left="20" width="50" height="8"><a href="https://publisher.example.org/x">Medication </a></text>
+<text top="20" left="20" width="50" height="8"><a href="https://publisher.example.org/x">Administration</a></text>
+<text top="20" left="100" width="20" height="8">Unrelated column</text>
+<text top="30" left="20" width="50" height="8"><a href="mailto:fictional@example.org">Contact</a></text>
+</page></pdf2xml>'''
+
+    def test_link_labels_preserve_fragments_positions_and_duplicate_targets(self):
+        from scripts.ppg_external_reconciliation import pdf_link_label_inspection
+        raw=self.link_xml();r=pdf_link_label_inspection(raw,'1'*64)
+        self.assertEqual([x['label'] for x in r['entries']],['Medication ','Administration'])
+        self.assertEqual([x['textBox']['top'] for x in r['entries']],[10,20])
+        self.assertEqual(r['ignoredLinks'][0]['label'],'Contact')
+        self.assertEqual(r['xmlSHA256'],hashlib.sha256(raw).hexdigest())
+        self.assertFalse(r['originalBindingVerified']);self.assertFalse(r['fullTextReview'])
+        self.assertFalse(r['editionVerified']);self.assertEqual(r['nativeWrites'],0)
+
+    def test_link_xml_rejects_entities_malformed_boxes_and_duplicate_pages(self):
+        from scripts.ppg_external_reconciliation import pdf_link_label_inspection
+        raw=self.link_xml()
+        variants=[b'<broken',b'<wrong/>',raw.decode().encode('utf-16'),raw.replace(b'top="10"',b'top="nan"'),
+                  raw.replace(b'number="13"',b'number="0"'),
+                  raw.replace(b'</pdf2xml>',b'<page number="13"/></pdf2xml>'),
+                  raw.replace(b'<pdf2xml>',b'<!DOCTYPE x [<!ENTITY x "content">]><pdf2xml>')]
+        for value in variants:
+            with self.subTest(value=value[:50]),self.assertRaises(ValueError):
+                pdf_link_label_inspection(value,'1'*64)
+        for value in [None,'not bytes']:
+            with self.assertRaises(ValueError):pdf_link_label_inspection(value,'1'*64)
+
+    def test_link_label_cli_uses_private_frozen_copy_and_create_only_output(self):
+        import tempfile,contextlib,io
+        from pathlib import Path
+        from unittest.mock import patch,MagicMock
+        from scripts.ppg_external_reconciliation import pdf_link_labels_main
+        raw=b'%PDF-1.4 fictional source';seen=[]
+        with tempfile.TemporaryDirectory() as temp:
+            original=Path(temp)/'original.pdf';original.write_bytes(raw);out=Path(temp)/'links.json'
+            args=['--original',str(original),'--original-sha256',hashlib.sha256(raw).hexdigest(),
+                  '--page','13','--output',str(out)]
+            def popen(command,**kwargs):
+                frozen=Path(command[-1]);seen.append(frozen)
+                self.assertNotEqual(frozen,original);self.assertEqual(frozen.read_bytes(),raw)
+                self.assertEqual(frozen.stat().st_mode&0o777,0o600)
+                self.assertIn('-i',command)
+                process=MagicMock();process.__enter__.return_value=process
+                process.stdout=io.BytesIO(self.link_xml());process.wait.return_value=0
+                process.poll.return_value=0
+                return process
+            with patch('shutil.which',return_value='/fictional/pdftohtml'),patch('subprocess.Popen',side_effect=popen),contextlib.redirect_stdout(io.StringIO()):
+                pdf_link_labels_main(args)
+                with self.assertRaises(ValueError):pdf_link_labels_main(args)
+            import json
+            r=json.loads(out.read_text());self.assertTrue(r['originalBindingVerified'])
+            self.assertEqual(r['selectedPage'],13);self.assertEqual(out.stat().st_mode&0o777,0o600)
+            self.assertEqual(original.read_bytes(),raw);self.assertFalse(seen[0].exists())
+
+    def test_link_label_cli_refuses_unselected_empty_page(self):
+        import tempfile,contextlib,io
+        from pathlib import Path
+        from unittest.mock import patch,MagicMock
+        from scripts.ppg_external_reconciliation import pdf_link_labels_main
+        with tempfile.TemporaryDirectory() as temp:
+            p=Path(temp)/'source.pdf';raw=b'%PDF-1.4 fictional';p.write_bytes(raw)
+            out=Path(temp)/'out.json'
+            def popen(command,**kwargs):
+                process=MagicMock();process.__enter__.return_value=process
+                process.stdout=io.BytesIO(b'<pdf2xml><page number="14"/></pdf2xml>')
+                process.wait.return_value=0;process.poll.return_value=0
+                return process
+            with patch('shutil.which',return_value='/fictional/pdftohtml'),patch('subprocess.Popen',side_effect=popen),contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaises(ValueError):pdf_link_labels_main([
+                    '--original',str(p),'--original-sha256',hashlib.sha256(raw).hexdigest(),
+                    '--page','13','--output',str(out)])
+            self.assertFalse(out.exists())
+
+    def test_link_cli_stops_oversize_output_and_rejects_processor_failure(self):
+        import tempfile,contextlib,io
+        from pathlib import Path
+        from unittest.mock import patch,MagicMock
+        from scripts.ppg_external_reconciliation import pdf_link_labels_main
+        with tempfile.TemporaryDirectory() as temp:
+            p=Path(temp)/'source.pdf';raw=b'%PDF-1.4 fictional';p.write_bytes(raw)
+            for data,status,running in [(b'x'*(8*1024*1024+1),0,True),(self.link_xml(),2,False)]:
+                process=MagicMock();process.__enter__.return_value=process
+                process.stdout=io.BytesIO(data);process.wait.return_value=status
+                process.poll.return_value=None if running else status
+                out=Path(temp)/'out.json'
+                with patch('shutil.which',return_value='/fictional/pdftohtml'),patch('subprocess.Popen',return_value=process),contextlib.redirect_stdout(io.StringIO()):
+                    with self.assertRaises(ValueError):pdf_link_labels_main([
+                        '--original',str(p),'--original-sha256',hashlib.sha256(raw).hexdigest(),
+                        '--page','13','--output',str(out)])
+                self.assertFalse(out.exists())
+                if running:process.kill.assert_called_once()
+
     def test_cli_capsule_read_stays_within_source_root(self):
         import tempfile,json,contextlib,io
         from pathlib import Path

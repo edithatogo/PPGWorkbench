@@ -99,3 +99,20 @@ It retains every original occurrence key, page, line and offset in
 Different artifacts, extraction hashes, source identities or inconsistent
 resolutions are never combined. Keep existing native reference identities; a
 previously saved atomic reference is sufficient only for its own recorded span.
+
+When table columns separate a displayed link's words, inspect its actual PDF
+link labels rather than joining unrelated body-text columns:
+
+```sh
+.venv/bin/python -m scripts.ppg_external_reconciliation pdf-link-labels \
+  --original .local/source.pdf --original-sha256 EXPECTED_SHA256 \
+  --page 13 --output .local/link-labels.json
+```
+
+The CLI requires installed Poppler `pdftohtml`, verifies the original hash and
+processes an immutable private copy of one selected page. Output is create-only
+and owner-readable. It retains each anchor label, URL and text box separately,
+including repeated targets; it does not infer how fragments should be joined.
+The pure parser's `originalBindingVerified` stays false until the CLI binds the
+actual processor output. Neither route fetches linked resources, changes native
+records, replaces the body extraction or establishes editions/full-body review.
