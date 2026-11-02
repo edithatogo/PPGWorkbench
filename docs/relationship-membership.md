@@ -5,7 +5,7 @@ relationship register through the installation's qualified CLI client. Use paged
 reads from the same site and retain exact preimages privately.
 
 ```sh
-.venv/bin/python scripts/ppg_relationship_membership.py .local/catalogue.json .local/assessments.json .local/relationships.json .local/membership-plan.json
+.venv/bin/python scripts/ppg_relationship_membership.py .local/catalogue.json .local/assessments.json .local/relationships.json .local/membership-plan.json --membership .local/source-membership.json
 ```
 
 The command prepares only missing progress rows. It preserves completed reviews,
@@ -22,3 +22,7 @@ New rows are **Needs relationship review**, with zero qualified sources and no
 authority assertion. They require full-source and endpoint review before an
 assessment can be completed. This membership reconciliation does not resolve
 edition conflicts, clinical applicability or publisher-access limitations.
+
+The membership file maps each new UID to the qualified active or retained source
+classification. Catalogue presence alone is insufficient; missing membership
+evidence produces a conflict. Keep the source checkpoint proving the mapping.

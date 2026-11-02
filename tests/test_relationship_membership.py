@@ -8,7 +8,7 @@ class MembershipTests(unittest.TestCase):
                      {'DocumentUID': 'new', 'sourceDocumentId': 'B', 'Title': 'New'}]
         existing = [{'DocumentUID': 'old', 'SourceDocumentId': 'A', 'AssessmentKey': 'key',
                      'AssessmentComplete': True, 'HumanNote': 'Preserve'}]
-        result = prepare(catalogue, existing, [])
+        result = prepare(catalogue, existing, [], {"new": "Active source snapshot"})
         self.assertEqual(len(result['creates']), 1)
         row = result['creates'][0]
         self.assertFalse(row['AssessmentComplete'])
@@ -21,7 +21,7 @@ class MembershipTests(unittest.TestCase):
     def test_identity_drift_and_duplicate_uids_fail_explicitly(self):
         catalogue = [{'DocumentUID': 'one', 'sourceDocumentId': 'B', 'Title': 'Changed'}]
         existing = [{'DocumentUID': 'one', 'SourceDocumentId': 'A', 'AssessmentKey': 'key'}]
-        self.assertTrue(prepare(catalogue, existing, [])['conflicts'])
+        self.assertTrue(prepare(catalogue, existing, [], {"new": "Active source snapshot"})['conflicts'])
         with self.assertRaises(ValueError):
             prepare(catalogue * 2, [], [])
 
@@ -29,7 +29,9 @@ class MembershipTests(unittest.TestCase):
         row = {'DocumentUID': 'new', 'sourceDocumentId': 'B', 'Title': 'New'}
         old = {'DocumentUID': 'retained', 'SourceDocumentId': 'A', 'AssessmentKey': 'key'}
         rel = {'RelationshipKey': 'r', 'FromDocumentUID': 'retained', 'ToDocumentUID': 'new'}
-        result = prepare([row], [old], [rel])
+        result = prepare([row], [old], [rel], {"new": "Retained outside source snapshot"})
+        self.assertEqual(result['creates'][0]['SourceMembership'], 'Retained outside source snapshot')
+        self.assertTrue(prepare([row], [old], [rel])['conflicts'])
         self.assertEqual(result['retainedOutsideCatalogue'], ['retained'])
         self.assertEqual(result['creates'][0]['ExistingIncomingCount'], 1)
         self.assertEqual(result['creates'][0]['ExistingOutgoingCount'], 0)

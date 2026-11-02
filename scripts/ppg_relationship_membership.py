@@ -6,6 +6,7 @@ does not authenticate, write to SharePoint or make substantive review decisions.
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 
 
@@ -19,7 +20,8 @@ def unique(rows, field):
     return result
 
 
-def prepare(catalogue, assessments, relationships):
+def prepare(catalogue, assessments, relationships, membership=None):
+    membership = membership or {}
     sources = unique(catalogue, 'DocumentUID')
     existing = unique(assessments, 'DocumentUID')
     unique(assessments, 'AssessmentKey')
@@ -36,6 +38,10 @@ def prepare(catalogue, assessments, relationships):
             if existing[uid].get('SourceDocumentId') != identifier:
                 conflicts.append({'documentUID': uid, 'reason': 'Source identity changed; preserve existing assessment'})
             continue
+        source_membership = membership.get(uid)
+        if source_membership not in {"Active source snapshot", "Retained outside source snapshot"}:
+            conflicts.append({"documentUID": uid, "reason": "Qualified active/retained source membership required"})
+            continue
         key = hashlib.sha256(json.dumps([uid, identifier], ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
         evidence = {'schemaVersion': 1, 'currentAuthorityVerified': False,
                     'sources': [], 'catalogueItemId': row.get('Id'),
@@ -44,7 +50,7 @@ def prepare(catalogue, assessments, relationships):
         creates.append({'Title': title[:255], 'AssessmentKey': 'cr-assessment:' + key,
                         'DocumentUID': uid, 'SourceDocumentId': identifier,
                         'AssessmentState': 'Needs relationship review',
-                        'SourceMembership': 'Active source snapshot', 'SourceCount': 0,
+                        'SourceMembership': source_membership, 'SourceCount': 0,
                         'ExistingOutgoingCount': sum(r.get('FromDocumentUID') == uid for r in relationships),
                         'ExistingIncomingCount': sum(r.get('ToDocumentUID') == uid for r in relationships),
                         'EvidenceManifest': json.dumps(evidence, ensure_ascii=False, sort_keys=True),
@@ -58,10 +64,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('catalogue', 'assessments', 'relationships', 'output'):
         parser.add_argument(name, type=Path)
+    parser.add_argument("--membership", type=Path, required=True, help="Private qualified UID-to-membership mapping")
     args = parser.parse_args()
-    result = prepare(*(json.loads(getattr(args, name).read_text()) for name in ('catalogue', 'assessments', 'relationships')))
-    with args.output.open('x', encoding='utf-8') as handle:
-        args.output.chmod(0o600)
+    result = prepare(*(json.loads(getattr(args, name).read_text()) for name in ('catalogue', 'assessments', 'relationships')), membership=json.loads(args.membership.read_text()))
+    fd = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, 'w', encoding='utf-8') as handle:
         json.dump(result, handle, ensure_ascii=False, indent=2)
     return 2 if result['conflicts'] else 0
 
