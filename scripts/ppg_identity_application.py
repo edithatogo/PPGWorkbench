@@ -145,6 +145,8 @@ def inspect_outcome(package: dict, receipt: dict, checkpoint: dict) -> dict:
     def matches(evidence):
         try:
             _, ledger = normalise_inputs({'records': []}, evidence)
+            from scripts.ppg_registry_only import checkpoint_registry_only
+            extra = checkpoint_registry_only(evidence, set(package['expectedUIDs']))
             return (evidence.get('status') == 'completed'
                     and evidence.get('sourceSha256') == package['sourceSha256']
                     and evidence.get('lastIdentityApplicationHash') == claimed
@@ -155,7 +157,8 @@ def inspect_outcome(package: dict, receipt: dict, checkpoint: dict) -> dict:
                         evidence.get('retainedAbsentUIDs') == package['retainedAbsentUIDs']
                         and evidence.get('retainedAbsentReadbackCount') == len(package['retainedAbsentUIDs'])
                         and evidence.get('retainedAbsentUnchanged') is True
-                        and evidence.get('catalogueReadbackCount') == len(package['expectedUIDs'])
+                        and type(evidence.get('catalogueReadbackCount')) is int
+                        and evidence.get('catalogueReadbackCount') == len(package['expectedUIDs']) + len(extra)
                         and ledger.get('sourceAbsenceAcknowledgements') == package['absenceAcknowledgements']))
                     and bool(evidence.get('runId')))
         except (KeyError, TypeError, ValueError):

@@ -316,7 +316,7 @@
                 },
                 "Candidate_UIDs": {
                   "runAfter": {
-                    "Read_current": [
+                    "Workbook_before": [
                       "Succeeded"
                     ]
                   },
@@ -336,7 +336,7 @@
                   },
                   "type": "Select",
                   "inputs": {
-                    "from": "@body('Read_current')?['d']?['results']",
+                    "from": "@body('Workbook_before')",
                     "select": {
                       "uid": "@item()?['DocumentUID']"
                     }
@@ -373,14 +373,14 @@
                       },
                       "type": "Select",
                       "inputs": {
-                        "from": "@body('Read_current')?['d']?['results']",
+                        "from": "@body('Workbook_before')",
                         "select": {
                           "DocumentUID": "@item()?['DocumentUID']",
                           "rawSourceRecordRef": "@item()?['rawSourceRecordRef']",
                           "sourceAsOfUtc": "@item()?['sourceAsOfUtc']",
                           "sourceCustodian": "@coalesce(item()?['sourceCustodian'],'')",
                           "sourceDocumentId": "@coalesce(item()?['sourceDocumentId'],'')",
-                          "sourceNextReviewDateRaw": "@float(json(item()?['sourceNextReviewDateRaw']))",
+                          "sourceNextReviewDateRaw": "@if(empty(string(item()?['sourceNextReviewDateRaw'])),null,float(json(item()?['sourceNextReviewDateRaw'])))",
                           "sourceNextReviewMonth": "@item()?['sourceNextReviewMonth']",
                           "sourceRisk": "@coalesce(item()?['sourceRisk'],'')",
                           "sourceRowNumber": "@item()?['sourceRowNumber']",
@@ -450,7 +450,7 @@
                                   "runAfter": {},
                                   "type": "Query",
                                   "inputs": {
-                                    "from": "@body('Read_current')?['d']?['results']",
+                                    "from": "@body('Workbook_before')",
                                     "where": "@equals(item()?['DocumentUID'],outputs('Current_operation')?['DocumentUID'])"
                                   }
                                 },
@@ -757,7 +757,7 @@
                       }
                     }
                   },
-                  "expression": "@and(and(and(and(equals(outputs('Parse_candidate')?['contractHash'],body('Extract_copy')?['result']?['candidate']?['contractHash']),and(equals(outputs('Parse_candidate')?['sourceSha256'],outputs('Selected_candidate')?['sourceSha256']),equals(length(outputs('Parse_candidate')?['operations']),outputs('Parse_candidate')?['inputCount']),equals(length(body('Read_current')?['d']?['results']),length(union(body('Current_UIDs'),body('Current_UIDs')))),empty(body('Read_current')?['d']?['__next']),empty(outputs('Parse_candidate')?['exceptions']),and(equals(length(outputs('Parse_candidate')?['missingUIDs']),length(coalesce(outputs('Parse_candidate')?['acknowledgedMissingUIDs'],json('[]')))),equals(length(union(outputs('Parse_candidate')?['missingUIDs'],coalesce(outputs('Parse_candidate')?['acknowledgedMissingUIDs'],json('[]')))),length(coalesce(outputs('Parse_candidate')?['acknowledgedMissingUIDs'],json('[]')))),equals(length(body('Retained_absent_before')),length(coalesce(outputs('Parse_candidate')?['acknowledgedMissingUIDs'],json('[]'))))),equals(length(union(body('Candidate_UIDs'),body('Current_UIDs'))),add(length(outputs('Parse_candidate')?['operations']),length(coalesce(outputs('Parse_candidate')?['acknowledgedMissingUIDs'],json('[]'))))),equals(length(union(body('Candidate_UIDs'),body('Candidate_UIDs'))),length(outputs('Parse_candidate')?['operations'])),equals(length(union(body('Current_UIDs'),body('Current_UIDs'))),length(body('Current_UIDs')))),equals(body('Read_source_metadata')?['UniqueId'],'__PPG_INSTALL_00265__'),equals(body('Read_source_metadata')?['ETag'],body('Read_source_before')?['ETag'])),if(equals(outputs('Selected_candidate')?['reusedCandidate'],true),and(equals(body('Read_candidate_metadata')?['ETag'],outputs('Parse_success_checkpoint')?['candidateETag']),equals(body('Read_candidate_metadata')?['UniqueId'],coalesce(outputs('Parse_success_checkpoint')?['candidateUniqueId'],'__PPG_INSTALL_00266__'))),equals(outputs('Parse_candidate'),body('Extract_copy')?['result']?['candidate']))),equals(body('Extract_copy')?['result']?['candidate']?['provenance']?['rawByteLength'],int(body('Read_source_before')?['Length']))),equals(body('Extract_copy')?['result']?['identityContract']?['baseContractHash'],outputs('Parse_success_checkpoint')?['identityContractHash']),empty(body('Missing_base_identities')),empty(body('Unqualified_new_identities')))",
+                  "expression": "@and(and(and(and(and(equals(outputs('Parse_candidate')?['contractHash'],body('Extract_copy')?['result']?['candidate']?['contractHash']),and(equals(outputs('Parse_candidate')?['sourceSha256'],outputs('Selected_candidate')?['sourceSha256']),equals(length(outputs('Parse_candidate')?['operations']),outputs('Parse_candidate')?['inputCount']),equals(length(body('Workbook_before')),length(union(body('Current_UIDs'),body('Current_UIDs')))),empty(body('Read_current')?['d']?['__next']),empty(outputs('Parse_candidate')?['exceptions']),and(equals(length(outputs('Parse_candidate')?['missingUIDs']),length(coalesce(outputs('Parse_candidate')?['acknowledgedMissingUIDs'],json('[]')))),equals(length(union(outputs('Parse_candidate')?['missingUIDs'],coalesce(outputs('Parse_candidate')?['acknowledgedMissingUIDs'],json('[]')))),length(coalesce(outputs('Parse_candidate')?['acknowledgedMissingUIDs'],json('[]')))),equals(length(body('Retained_absent_before')),length(coalesce(outputs('Parse_candidate')?['acknowledgedMissingUIDs'],json('[]'))))),equals(length(union(body('Candidate_UIDs'),body('Current_UIDs'))),add(length(outputs('Parse_candidate')?['operations']),length(coalesce(outputs('Parse_candidate')?['acknowledgedMissingUIDs'],json('[]'))))),equals(length(union(body('Candidate_UIDs'),body('Candidate_UIDs'))),length(outputs('Parse_candidate')?['operations'])),equals(length(union(body('Current_UIDs'),body('Current_UIDs'))),length(body('Current_UIDs')))),equals(body('Read_source_metadata')?['UniqueId'],'__PPG_INSTALL_00265__'),equals(body('Read_source_metadata')?['ETag'],body('Read_source_before')?['ETag'])),if(equals(outputs('Selected_candidate')?['reusedCandidate'],true),and(equals(body('Read_candidate_metadata')?['ETag'],outputs('Parse_success_checkpoint')?['candidateETag']),equals(body('Read_candidate_metadata')?['UniqueId'],coalesce(outputs('Parse_success_checkpoint')?['candidateUniqueId'],'__PPG_INSTALL_00266__'))),equals(outputs('Parse_candidate'),body('Extract_copy')?['result']?['candidate']))),equals(body('Extract_copy')?['result']?['candidate']?['provenance']?['rawByteLength'],int(body('Read_source_before')?['Length']))),equals(body('Extract_copy')?['result']?['identityContract']?['baseContractHash'],outputs('Parse_success_checkpoint')?['identityContractHash']),empty(body('Missing_base_identities')),empty(body('Unqualified_new_identities'))),empty(body('Invalid_registry_pins')),empty(body('Registry_alias_collisions')),equals(length(body('Registry_pinned_rows')),length(outputs('Registry_manifest')?['entries'])),equals(length(body('Registry_before')),length(body('Registry_remaining_UIDs'))))",
                   "type": "If"
                 },
                 "Read_candidate_metadata_after": {
@@ -815,7 +815,10 @@
                         "retainedAbsentUIDs": "@coalesce(outputs('Parse_candidate')?['acknowledgedMissingUIDs'],json('[]'))",
                         "retainedAbsentReadbackCount": "@length(body('Retained_absent_after'))",
                         "retainedAbsentUnchanged": "@and(equals(length(union(body('Canonical_retained_before'),body('Canonical_retained_before'))),length(body('Canonical_retained_before'))),equals(length(union(body('Canonical_retained_after'),body('Canonical_retained_after'))),length(body('Canonical_retained_after'))),equals(length(body('Canonical_retained_before')),length(body('Canonical_retained_after'))),equals(length(union(body('Canonical_retained_before'),body('Canonical_retained_after'))),length(body('Canonical_retained_before'))))",
-                        "catalogueReadbackCount": "@length(body('Read_current_after')?['d']?['results'])"
+                        "catalogueReadbackCount": "@length(body('Read_current_after')?['d']?['results'])",
+                        "registryOnlyManifestVersion": 1,
+                        "registryOnlyEntries": "@body('Registry_remaining')",
+                        "registryOnlyUnchanged": "@and(equals(length(body('Registry_before')),length(body('Registry_after'))),equals(length(union(body('Stable_registry_before'),body('Stable_registry_after'))),length(body('Registry_before'))))"
                       }
                     },
                     "Set_full_readback_count": {
@@ -841,7 +844,7 @@
                       }
                     }
                   },
-                  "expression": "@and(and(equals(variables('abortRun'),false),equals(variables('readbackCount'),length(outputs('Work_operations'))),equals(length(body('Read_current_after')?['d']?['results']),add(length(outputs('Parse_candidate')?['operations']),length(coalesce(outputs('Parse_candidate')?['acknowledgedMissingUIDs'],json('[]'))))),empty(body('Read_current_after')?['d']?['__next']),equals(length(union(body('Canonical_after'),body('Canonical_after'))),length(outputs('Parse_candidate')?['operations'])),equals(length(union(body('Canonical_expected'),body('Canonical_after'))),length(outputs('Parse_candidate')?['operations'])),equals(body('Read_candidate_metadata')?['ETag'],body('Read_candidate_metadata_after')?['ETag']),equals(body('Read_candidate_metadata')?['UniqueId'],body('Read_candidate_metadata_after')?['UniqueId']),equals(body('Read_source_metadata')?['ETag'],body('Read_source_metadata_after')?['ETag']),equals(body('Read_source_metadata')?['UniqueId'],body('Read_source_metadata_after')?['UniqueId'])),and(equals(length(union(body('Canonical_retained_before'),body('Canonical_retained_before'))),length(body('Canonical_retained_before'))),equals(length(union(body('Canonical_retained_after'),body('Canonical_retained_after'))),length(body('Canonical_retained_after'))),equals(length(body('Canonical_retained_before')),length(body('Canonical_retained_after'))),equals(length(union(body('Canonical_retained_before'),body('Canonical_retained_after'))),length(body('Canonical_retained_before')))))",
+                  "expression": "@and(and(and(equals(variables('abortRun'),false),equals(variables('readbackCount'),length(outputs('Work_operations'))),equals(length(body('Workbook_after')),add(length(outputs('Parse_candidate')?['operations']),length(coalesce(outputs('Parse_candidate')?['acknowledgedMissingUIDs'],json('[]'))))),empty(body('Read_current_after')?['d']?['__next']),equals(length(union(body('Canonical_after'),body('Canonical_after'))),length(outputs('Parse_candidate')?['operations'])),equals(length(union(body('Canonical_expected'),body('Canonical_after'))),length(outputs('Parse_candidate')?['operations'])),equals(body('Read_candidate_metadata')?['ETag'],body('Read_candidate_metadata_after')?['ETag']),equals(body('Read_candidate_metadata')?['UniqueId'],body('Read_candidate_metadata_after')?['UniqueId']),equals(body('Read_source_metadata')?['ETag'],body('Read_source_metadata_after')?['ETag']),equals(body('Read_source_metadata')?['UniqueId'],body('Read_source_metadata_after')?['UniqueId'])),and(equals(length(union(body('Canonical_retained_before'),body('Canonical_retained_before'))),length(body('Canonical_retained_before'))),equals(length(union(body('Canonical_retained_after'),body('Canonical_retained_after'))),length(body('Canonical_retained_after'))),equals(length(body('Canonical_retained_before')),length(body('Canonical_retained_after'))),equals(length(union(body('Canonical_retained_before'),body('Canonical_retained_after'))),length(body('Canonical_retained_before'))))),and(equals(length(body('Registry_before')),length(body('Registry_after'))),equals(length(union(body('Stable_registry_before'),body('Stable_registry_after'))),length(body('Registry_before')))))",
                   "type": "If"
                 },
                 "Read_source_metadata": {
@@ -945,7 +948,7 @@
                   },
                   "type": "Select",
                   "inputs": {
-                    "from": "@body('Read_current')?['d']?['results']",
+                    "from": "@body('Workbook_before')",
                     "select": "@item()?['DocumentUID']"
                   }
                 },
@@ -969,8 +972,8 @@
                   },
                   "type": "Query",
                   "inputs": {
-                    "from": "@body('Read_current')?['d']?['results']",
-                    "where": "@and(not(contains(body('Extract_copy')?['result']?['identityContract']?['baseUIDs'],item()?['DocumentUID'])),not(and(contains(coalesce(body('Extract_copy')?['result']?['identityApplication']?['newUIDs'],json('[]')),item()?['DocumentUID']),equals(item()?['sourceIdentityDecisionRef'],body('Extract_copy')?['result']?['identityApplication']?['packageHash']))))"
+                    "from": "@body('Workbook_before')",
+                    "where": "@and(and(not(contains(body('Extract_copy')?['result']?['identityContract']?['baseUIDs'],item()?['DocumentUID'])),not(and(contains(coalesce(body('Extract_copy')?['result']?['identityApplication']?['newUIDs'],json('[]')),item()?['DocumentUID']),equals(item()?['sourceIdentityDecisionRef'],body('Extract_copy')?['result']?['identityApplication']?['packageHash'])))),not(and(contains(outputs('Registry_pins'),item()?['DocumentUID']),contains(coalesce(body('Extract_copy')?['result']?['identityApplication']?['newUIDs'],json('[]')),item()?['DocumentUID']))))"
                   }
                 },
                 "Retained_absent_before": {
@@ -981,7 +984,7 @@
                   },
                   "type": "Query",
                   "inputs": {
-                    "from": "@body('Read_current')?['d']?['results']",
+                    "from": "@body('Workbook_before')",
                     "where": "@contains(coalesce(outputs('Parse_candidate')?['acknowledgedMissingUIDs'],json('[]')),item()?['DocumentUID'])"
                   }
                 },
@@ -1015,13 +1018,13 @@
                 },
                 "Active_current_after": {
                   "runAfter": {
-                    "Read_current_after": [
+                    "Workbook_after": [
                       "Succeeded"
                     ]
                   },
                   "type": "Query",
                   "inputs": {
-                    "from": "@body('Read_current_after')?['d']?['results']",
+                    "from": "@body('Workbook_after')",
                     "where": "@not(contains(coalesce(outputs('Parse_candidate')?['acknowledgedMissingUIDs'],json('[]')),item()?['DocumentUID']))"
                   }
                 },
@@ -1033,7 +1036,7 @@
                   },
                   "type": "Query",
                   "inputs": {
-                    "from": "@body('Read_current_after')?['d']?['results']",
+                    "from": "@body('Workbook_after')",
                     "where": "@contains(coalesce(outputs('Parse_candidate')?['acknowledgedMissingUIDs'],json('[]')),item()?['DocumentUID'])"
                   }
                 },
@@ -1063,6 +1066,168 @@
                       "sourceIdentityDecisionRef": "@item()?['sourceIdentityDecisionRef']",
                       "retainedETag": "@if(empty(item()?['__metadata']?['etag']),div(1,0),item()?['__metadata']?['etag'])"
                     }
+                  }
+                },
+                "Registry_manifest": {
+                  "type": "Compose",
+                  "inputs": {
+                    "schemaVersion": 1,
+                    "entries": []
+                  },
+                  "runAfter": {
+                    "Read_current": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Registry_pins": {
+                  "type": "Compose",
+                  "inputs": {},
+                  "runAfter": {
+                    "Registry_manifest": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Registry_identifiers": {
+                  "type": "Compose",
+                  "inputs": {},
+                  "runAfter": {
+                    "Registry_pins": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Registry_remaining": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@outputs('Registry_manifest')?['entries']",
+                    "where": "@and(not(contains(body('Extract_copy')?['result']?['identityContract']?['baseUIDs'],item()?['documentUID'])),not(contains(coalesce(body('Extract_copy')?['result']?['identityApplication']?['newUIDs'],json('[]')),item()?['documentUID'])))"
+                  },
+                  "runAfter": {
+                    "Registry_identifiers": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Registry_remaining_UIDs": {
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@body('Registry_remaining')",
+                    "select": "@item()?['documentUID']"
+                  },
+                  "runAfter": {
+                    "Registry_remaining": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Registry_pinned_rows": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('Read_current')?['d']?['results']",
+                    "where": "@contains(outputs('Registry_pins'),item()?['DocumentUID'])"
+                  },
+                  "runAfter": {
+                    "Registry_remaining_UIDs": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Invalid_registry_pins": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('Registry_pinned_rows')",
+                    "where": "@or(not(equals(item()?['Id'],outputs('Registry_pins')?[item()?['DocumentUID']]?['itemId'])),and(contains(body('Registry_remaining_UIDs'),item()?['DocumentUID']),or(not(equals(item()?['sourceDocumentId'],outputs('Registry_pins')?[item()?['DocumentUID']]?['printedIdentifier'])),not(equals(item()?['sourceSnapshotRef'],outputs('Registry_pins')?[item()?['DocumentUID']]?['evidenceRef'])))))"
+                  },
+                  "runAfter": {
+                    "Registry_pinned_rows": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Registry_alias_collisions": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@outputs('Parse_candidate')?['operations']",
+                    "where": "@and(contains(outputs('Registry_identifiers'),item()?['fields']?['sourceDocumentId']),not(equals(outputs('Registry_identifiers')?[item()?['fields']?['sourceDocumentId']],item()?['DocumentUID'])))"
+                  },
+                  "runAfter": {
+                    "Invalid_registry_pins": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Registry_before": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('Read_current')?['d']?['results']",
+                    "where": "@contains(body('Registry_remaining_UIDs'),item()?['DocumentUID'])"
+                  },
+                  "runAfter": {
+                    "Registry_alias_collisions": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Workbook_before": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('Read_current')?['d']?['results']",
+                    "where": "@not(contains(body('Registry_remaining_UIDs'),item()?['DocumentUID']))"
+                  },
+                  "runAfter": {
+                    "Stable_registry_before": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Registry_after": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('Read_current_after')?['d']?['results']",
+                    "where": "@contains(body('Registry_remaining_UIDs'),item()?['DocumentUID'])"
+                  },
+                  "runAfter": {
+                    "Read_current_after": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Workbook_after": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('Read_current_after')?['d']?['results']",
+                    "where": "@not(contains(body('Registry_remaining_UIDs'),item()?['DocumentUID']))"
+                  },
+                  "runAfter": {
+                    "Stable_registry_after": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Stable_registry_before": {
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@body('Registry_before')",
+                    "select": "@setProperty(item(),'__metadata',removeProperty(item()?['__metadata'],'id'))"
+                  },
+                  "runAfter": {
+                    "Registry_before": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Stable_registry_after": {
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@body('Registry_after')",
+                    "select": "@setProperty(item(),'__metadata',removeProperty(item()?['__metadata'],'id'))"
+                  },
+                  "runAfter": {
+                    "Registry_after": [
+                      "Succeeded"
+                    ]
                   }
                 }
               },

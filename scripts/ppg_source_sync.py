@@ -282,12 +282,15 @@ def retention_contract(plan: dict, checkpoint: dict, catalogue: list[dict] | Non
             or checkpoint.get('retainedAbsentUnchanged') is not True
             or checkpoint.get('retainedAbsentReadbackCount') != len(retained)):
         raise SyncError('complete_native_retention_readback_required')
+    from scripts.ppg_registry_only import checkpoint_registry_only
+    registry_only = checkpoint_registry_only(checkpoint, all_ids, catalogue)
+    all_ids = all_ids | registry_only
     if checkpoint.get('catalogueReadbackCount', checkpoint['readbackCount']) != len(all_ids):
         raise SyncError('complete_catalogue_accounting_required')
     if catalogue is not None and identities([r['DocumentUID'] for r in catalogue]) != all_ids:
         raise SyncError('catalogue_retention_uid_set_mismatch')
     return {'activeUIDs': sorted(active), 'retainedUIDs': sorted(retained),
-            'catalogueUIDs': sorted(all_ids), 'acknowledgements': acknowledgements}
+            'catalogueUIDs': sorted(all_ids), 'registryOnlyUIDs': sorted(registry_only), 'acknowledgements': acknowledgements}
 
 
 def reconcile(plan: dict, target: Target, state: Path) -> dict:
