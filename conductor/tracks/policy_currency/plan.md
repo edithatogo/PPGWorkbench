@@ -25,3 +25,8 @@ preserves curated candidates; solution version 0.2.3.0 remains applicable. Earli
 PC-05 counts are historical; current per-record outcomes and receipts stay private.
 
 Implementation: [full-text review CLI](../../../docs/policy-currency-fulltext-review.md).
+
+- [x] PC-07a. Resolve retained body identities using native UID bindings, full headers, explicit edition variants and verified wrapped originals; commission the catalogue ledger/view and reassess unresolved leads against the expanded corpus. Exact native readback and unchanged projections verified.
+- [ ] PC-07b. Complete the remaining body/source coverage where same-identity originals or authoritative identifier reconciliation are unavailable. Preserve numeric/medicine conflicts and other-organisation lookalikes as holds.
+
+2 November continuation: SharePoint companion 1.4.0 ships the additive body ledger schema and CLI bootstrap. Production cloud definitions and solution 0.2.3.0 are unchanged. PC-06b/PC-07b remain incomplete; current private native receipts supersede earlier aggregate counts.
