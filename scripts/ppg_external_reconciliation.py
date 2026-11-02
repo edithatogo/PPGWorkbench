@@ -48,6 +48,116 @@ def verified_original_capsule(source, original, read_bytes):
             'originalCapsuleMember': capsule['member']}
 
 
+def pdf_link_label_inspection(xml_bytes, original_sha256):
+    """Inspect bounded Poppler XML link labels/boxes; never join or adopt them."""
+    import math
+    import xml.etree.ElementTree as ET
+    if (not isinstance(xml_bytes, bytes) or len(xml_bytes) > 8 * 1024 * 1024
+            or not isinstance(original_sha256, str)
+            or not re.fullmatch(r'[a-f0-9]{64}', original_sha256)):
+        raise ValueError('Bound XML bytes and original SHA256 required')
+    # Poppler emits this fixed external DTD declaration. No entities or other DTD.
+    safe = xml_bytes.replace(b'<!DOCTYPE pdf2xml SYSTEM "pdf2xml.dtd">', b'')
+    if re.search(br'<!\s*(?:DOCTYPE|ENTITY)', safe, re.I):
+        raise ValueError('Unsupported XML declaration')
+    try:
+        root = ET.fromstring(safe)
+    except ET.ParseError as error:
+        raise ValueError('Malformed PDF link XML') from error
+    if root.tag != 'pdf2xml':
+        raise ValueError('Expected Poppler pdf2xml root')
+    entries, ignored, seen = [], [], set()
+    ordinal = 0
+    for page in root.findall('page'):
+        try:
+            number = int(page.attrib['number'])
+        except (KeyError, ValueError) as error:
+            raise ValueError('PDF page number required') from error
+        if not 1 <= number <= 10000 or number in seen:
+            raise ValueError('Ambiguous PDF page number')
+        seen.add(number)
+        for node in page.findall('text'):
+            anchors = node.findall('.//a')
+            if not anchors:
+                continue
+            try:
+                box = {k: float(node.attrib[k]) for k in ('top', 'left', 'width', 'height')}
+            except (KeyError, ValueError) as error:
+                raise ValueError('Link text box required') from error
+            if (any(not math.isfinite(v) or abs(v) > 10000000 for v in box.values())
+                    or box['width'] < 0 or box['height'] < 0):
+                raise ValueError('Invalid link text box')
+            for anchor in anchors:
+                if anchor.findall('.//a'):
+                    raise ValueError('Nested link labels are ambiguous')
+                href, label = anchor.get('href', ''), ''.join(anchor.itertext())
+                try:
+                    target = urlsplit(href)
+                    valid = (target.scheme in {'http', 'https'} and target.hostname
+                        and not target.username and not target.password
+                        and target.port in (None, 80, 443) and not re.search(r'[\s\\]', href))
+                except ValueError:
+                    valid = False
+                row = dict(ordinal=ordinal, page=number, rawURL=href, label=label, textBox=box)
+                (entries if valid else ignored).append(row if valid else dict(
+                    row, reason='unsupported_or_malformed_URI'))
+                ordinal += 1
+    return dict(kind='ppg-pdf-link-label-inspection-v1', originalSHA256=original_sha256,
+                xmlSHA256=sha(xml_bytes), entries=entries, ignoredLinks=ignored,
+                originalBindingVerified=False, fullTextReview=False, editionVerified=False,
+                nativeWrites=0, retrievals=0)
+
+
+def pdf_link_labels_main(argv=None):
+    """Capture one page's link labels from an immutable private original copy."""
+    import argparse
+    import json
+    import os
+    import shutil
+    import subprocess
+    import tempfile
+    parser = argparse.ArgumentParser(description=pdf_link_labels_main.__doc__)
+    parser.add_argument('--original', type=Path, required=True)
+    parser.add_argument('--original-sha256', required=True)
+    parser.add_argument('--page', type=int, required=True)
+    parser.add_argument('--output', type=Path, required=True)
+    args = parser.parse_args(argv)
+    if args.output.exists() or not 1 <= args.page <= 10000:
+        raise ValueError('New private output and bounded page required')
+    if args.original.stat().st_size > 128 * 1024 * 1024:
+        raise ValueError('Original PDF exceeds bound')
+    original = args.original.read_bytes()
+    if not original.startswith(b'%PDF-') or sha(original) != args.original_sha256:
+        raise ValueError('Original PDF differs from expected hash')
+    executable = shutil.which('pdftohtml')
+    if not executable:
+        raise ValueError('Installed Poppler pdftohtml required')
+    with tempfile.TemporaryDirectory(prefix='ppg-pdf-links-') as temp:
+        frozen = Path(temp) / 'source.pdf'
+        fd = os.open(frozen, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(original)
+        command = [executable, '-f', str(args.page), '-l', str(args.page),
+                   '-xml', '-hidden', '-i', '-stdout', str(frozen)]
+        with (Path(temp) / 'labels.xml').open('w+b') as captured:
+            subprocess.run(command, check=True, stdout=captured, stderr=subprocess.DEVNULL, timeout=60)
+            if captured.tell() > 8 * 1024 * 1024:
+                raise ValueError('PDF link XML exceeds bound')
+            captured.seek(0)
+            xml_bytes = captured.read(8 * 1024 * 1024 + 1)
+    result = pdf_link_label_inspection(xml_bytes, args.original_sha256)
+    if any(row['page'] != args.page for row in result['entries'] + result['ignoredLinks']):
+        raise ValueError('Processor returned an unselected page')
+    result.update(originalBindingVerified=True, selectedPage=args.page,
+                  processor='Poppler pdftohtml; immutable original copy; images excluded',
+                  processorExecutable=executable)
+    fd = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, 'w') as stream:
+        json.dump(result, stream, ensure_ascii=False, indent=2)
+    print(json.dumps(dict(linkLabels=len(result['entries']), nativeWrites=0,
+                          fullTextReview=False, originalBindingVerified=True)))
+
+
 def pdf_uri_inspection(annotation_output, original_sha256, *, decode_url_wrappers=False):
     """Render retained ``pdfinfo -url`` evidence without fetching any URI.
 
@@ -373,4 +483,9 @@ def main(argv=None):
         'representationCandidates':reps['candidateOccurrences'],'nativeWrites':0}))
 
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    import sys
+    if sys.argv[1:2] == ['pdf-link-labels']:
+        pdf_link_labels_main(sys.argv[2:])
+    else:
+        main()
