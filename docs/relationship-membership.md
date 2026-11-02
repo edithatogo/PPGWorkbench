@@ -26,3 +26,29 @@ edition conflicts, clinical applicability or publisher-access limitations.
 The membership file maps each new UID to the qualified active or retained source
 classification. Catalogue presence alone is insufficient; missing membership
 evidence produces a conflict. Keep the source checkpoint proving the mapping.
+
+## Recovered evidence and documentary proposals
+
+A recovered body can move an assessment from **Needs evidence** to **Needs
+relationship review** after its document identity, original/native byte hashes
+and complete extraction are qualified. Preserve earlier evidence and distinguish
+the retained edition from the register edition. This transition does not complete
+the substantive assessment or establish current approval.
+
+Keep documentary-reference proposals in **Proposed**. Pin both retained endpoint
+artifacts and the literal source passage. Missing exact cited-edition evidence,
+identity conflicts and reference-scope holds remain explicit. A documentary
+reference does not establish an operative dependency or clinical applicability.
+
+After adding relationships, refresh the existing incoming/outgoing counts and key
+inventories without changing assessment conclusions or human decisions. Keep a
+dated completion's original comparison scope intact; newer inventory is separate
+evidence for subsequent review.
+
+For conditional updates inside a SharePoint batch, reuse the `MERGE` request-line
+pattern in [the dataset refresh builder](../scripts/ppg_dataset_refresh.py), with
+each item's exact `IF-MATCH` ETag. The outer request is `POST` to `$batch`. Bound
+each batch to 20 operations, retain the raw per-operation response before parsing,
+and verify every changed row. Reconcile an uncertain batch by exact readback
+before another send; do not repeat successful writes. Qualify the changed route
+on one selected operation before expanding to the batch.
