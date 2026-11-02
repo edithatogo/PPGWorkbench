@@ -53,3 +53,49 @@ wrong attachment or incomplete issue. A lead without a selected link stays
 unresolved even when its notice was read; do not turn missing evidence into a
 “No impact” disposition. Keep actual counts and per-record blockers in private
 receipts and the native review fields.
+
+## Retained policy-body identities
+
+Use the body qualifier before adding a previously unqualified body to the review
+corpus. It checks the primary heading and printed document family, or an existing
+native catalogue UID binding. Common labels such as “Drug infusion guideline” and
+medicine names mentioned only in the body cannot replace the expected heading.
+Identifier variants require capture-pinned reviewed evidence; a different document
+number remains a conflict. The original register identifier is preserved.
+
+```sh
+.venv/bin/python scripts/ppg_policy_body_identity.py \
+  .local/body-identities/input.json .local/body-identities/qualification.json
+```
+
+The private input contains `policies`, `documents` and explicit `bindings` arrays.
+A binding supplies `uid`, `sha256` and, when applicable, `nativeUID`, `variant` or
+`titleReview`. Policy and capture identities must be unique. Documents retain the
+verified original-byte SHA256, full text, text SHA256 and extraction scope. A
+reviewed variant pins the original expected identifier, observed identifier,
+capture hash and rationale. A reviewed renamed heading pins its actual passage
+and capture hash. None of these establish current approval or clinical applicability.
+
+Some retained originals are ZIP-wrapped Word files. The qualifier's
+`unpack_single_document` helper retains the container and member hashes and reads
+one original without extracting arbitrary paths. Multiple-version packages remain
+intact and require explicit member selection; they are never flattened silently.
+
+`BodyIdentityState`, `BodyIdentityEvidence` and `BodyIdentityJSON` on the catalogue
+record the retained bindings or exact holds. The **Policy body identities** view
+exposes state and evidence; the JSON contains capture/edition/source links. These
+optional fields are in the whole-product installation schema and companion release.
+Source identifiers, source captures and human annotations remain authoritative in
+their existing fields. A bound historical body is not proof that the register's
+current edition has been located. Keep source-notice retrieval gaps separate.
+
+Provision an existing installation with the retained qualified SharePoint adapter:
+
+```sh
+node scripts/ppg_policy_body_ledger.mjs \
+  .local/adapter.mjs .local/body-identities/schema-receipt.json
+```
+
+An optional third argument binds the exact destination list ID. Existing field types
+and the view are read back; conflicting definitions are held for reconciliation.
+The command does not populate bindings, change register identifiers or enable flows.

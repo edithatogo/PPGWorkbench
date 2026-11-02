@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "companionVersion": "1.3.0",
+  "companionVersion": "1.4.0",
   "productionSolutionVersion": "0.2.3.0",
   "wholeProductInstallerVersion": "1.0.4",
   "solutionInventory": {
@@ -40,6 +40,14 @@
       "fixture": "tests/fixtures/accreditation/pmaq-pgy1.json",
       "identity": "existing framework, requirement, evidence, decision and event keys",
       "recovery": "logical export with destination-specific file identities and lookup resolution"
+    },
+    {
+      "key": "policy-body-identity",
+      "type": "SharePoint catalogue body ledger fields and review view",
+      "entryPoint": "scripts/ppg_policy_body_identity.py",
+      "identity": "catalogue UID, retained capture SHA256 and optional wrapped-member SHA256",
+      "recovery": "Reproject verified retained-body bindings; preserve registered identifiers, human dispositions and conflicting editions",
+      "schemaProvisioner": "scripts/ppg_policy_body_ledger.mjs"
     }
   ],
   "taskStatus": {
