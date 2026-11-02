@@ -6,6 +6,23 @@ accreditation examples have recorded delivery evidence. Historical partial
 archives retain their incomplete criteria; this is not a new health check of
 unchanged flows.
 
+## Registry rollout
+
+The only open production check is the first genuine update submitted by a
+non-owner staff member from the correct Registry record. Before submission,
+capture the earlier edition’s file ID, version and hash. After submission, open
+the new edition through **Open linked files**, follow its own **Submitted for
+review** case in the Review Queue, and confirm the earlier edition still opens
+with the same ID, version and hash. Keep the evidence with the deployment.
+
+Handle the 49 outstanding Registry links as files become available. For each
+confirmed document and edition, link it and open it from the matching record.
+Keep ambiguous candidates open in the existing private action list until the
+source or custodian resolves them. This is ongoing catalogue maintenance.
+
+Word review packs and new dashboards, including Power BI, are deferred until
+staff identify a specific need in day-to-day use.
+
 ## Evidence and operational work
 
 Policy currency matching, disposition reporting and its cloud schedule are
@@ -38,8 +55,6 @@ workbench and are not represented as completed plans.
 - Hospital context: capture freshness and facility coverage before trends.
 - Safe change and reuse: dependency-change summaries and destination-specific
   managed deployment qualification when a real rollout is selected.
-- Reporting: Power BI remains a roadmap item after the first business question
-  and audience are defined.
 - Broader source/policy coverage and row-aware automatic full-content matching
   can be selected later; the current cloud flow does not claim that review.
 

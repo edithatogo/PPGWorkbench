@@ -8,6 +8,8 @@ owners, current task selection and operational records retain precedence for
 execution. This source profile does not establish target access or deployment.
 The existing enterprise authority/mirror mapping is unchanged.
 
+Current Registry rollout follows the [remaining-work roadmap](../docs/ppg-remaining-work.md#registry-rollout).
+
 ## Next useful improvements
 
 The ordered cross-repository queue is in [the module profile](../.careops/module.json).
@@ -20,7 +22,7 @@ Do not create another track, chat, acceptance pack or status ledger for alignmen
    Done when: Portable content and source checks pass; no private history, tenant binding or policy text is copied.
 2. **runtime** — Test declared Python/Node runtimes and current authoring dependencies without changing the private scheduled runtime.
    Done when: Portable fixtures build and replay on exact pins; actual native qualification remains separate.
-3. **templates** — Qualify a maintained structured-document template for one fictional policy/review package.
+3. **templates** (deferred pending a staff need) — Qualify a maintained structured-document template for one fictional policy/review package.
    Done when: Human edits and earlier outputs remain unchanged; a stable case/occurrence identity links immutable revisions with each output reference, source/template revision and issued history retained.
 
 ## Dependency and delivery defaults

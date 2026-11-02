@@ -33,7 +33,7 @@
     },
     {
       "id": "templates",
-      "status": "in_progress",
+      "status": "deferred",
       "lane": "existing implementation or platform lane",
       "operation": "Qualify a maintained structured-document template for one fictional policy/review package.",
       "tools": [

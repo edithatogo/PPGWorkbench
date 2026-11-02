@@ -33,7 +33,7 @@ These are proposed increments. Each starts with a decision the team already need
 | Accreditation readiness for evidence leads | Evidence Versions, Standards Mappings, Requirement Assessments and the standards check | Show proposed mappings with missing or superseded evidence, grouped by scheme. Measure unresolved evidence gaps without sharing judgements between schemes. |
 | Hospital context for service planners | Hospital Dataset Captures, Facilities, Current Metrics, Busyness Trends and the shared daily collector | Show capture freshness and missing facilities before presenting operational trends. Measure coverage against each response's declared total. |
 | Safe change and recovery for platform maintainers | Dataset Catalogue, Used by, solution export and installation/recovery bindings | Prioritise unresolved actions in production writers, then report changed dependencies with each release. Measure unresolved production write destinations. |
-| Reporting for service leadership | Existing monthly reports, status projections and verified datasets | Define the first question and owner before adding the roadmap Power BI dashboard. Measure whether the report answers that agreed question. |
+| Reporting for service leadership | Existing monthly reports, status projections and verified datasets | New dashboards, including Power BI, are deferred. Revisit when staff identify a decision the existing reports cannot support. |
 
 ### Investigate unresolved production writers
 
