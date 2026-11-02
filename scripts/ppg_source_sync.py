@@ -12,6 +12,11 @@ Native binding additionally requires QW1 resource/schema/baseline handoff.
 
 from __future__ import annotations
 
+if __package__:
+    from .ppg_registry_only import checkpoint_registry_only
+else:
+    from ppg_registry_only import checkpoint_registry_only
+
 import csv
 import hashlib
 import json
@@ -282,7 +287,6 @@ def retention_contract(plan: dict, checkpoint: dict, catalogue: list[dict] | Non
             or checkpoint.get('retainedAbsentUnchanged') is not True
             or checkpoint.get('retainedAbsentReadbackCount') != len(retained)):
         raise SyncError('complete_native_retention_readback_required')
-    from scripts.ppg_registry_only import checkpoint_registry_only
     registry_only = checkpoint_registry_only(checkpoint, all_ids, catalogue)
     all_ids = all_ids | registry_only
     if checkpoint.get('catalogueReadbackCount', checkpoint['readbackCount']) != len(all_ids):

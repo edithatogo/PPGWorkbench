@@ -39,7 +39,10 @@ def transform(document, manifest):
         elif isinstance(node, list):
             for child in node:
                 yield from visit(child)
-    actions, = visit(result)
+    matches = list(visit(result))
+    if len(matches) != 1:
+        raise ValueError(f"expected one QW3 reconciliation action group, found {len(matches)}")
+    actions = matches[0]
     def replace(node, old, new):
         for key, value in node.items():
             if isinstance(value, dict):

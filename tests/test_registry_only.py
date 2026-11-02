@@ -39,6 +39,7 @@ class RegistryOnlyTests(unittest.TestCase):
         self.plan["inputCount"] = self.checkpoint["readbackCount"] = 2
         with self.assertRaises(ValueError):
             retention_contract(self.plan, self.checkpoint, self.rows)
+        # Two workbook identities plus ten Registry-only identities still total twelve.
         self.checkpoint["registryOnlyEntries"] = self.entries[1:]
         for _ in range(2):
             result = retention_contract(self.plan, self.checkpoint, self.rows)

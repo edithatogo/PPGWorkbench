@@ -6,6 +6,11 @@ this module never mints them. Installation and serial application belong to QW3.
 """
 from __future__ import annotations
 
+if __package__:
+    from .ppg_registry_only import checkpoint_registry_only
+else:
+    from ppg_registry_only import checkpoint_registry_only
+
 import copy
 from uuid import UUID
 from ppg_identity_triage import inspect, validate, normalise_inputs
@@ -145,7 +150,6 @@ def inspect_outcome(package: dict, receipt: dict, checkpoint: dict) -> dict:
     def matches(evidence):
         try:
             _, ledger = normalise_inputs({'records': []}, evidence)
-            from scripts.ppg_registry_only import checkpoint_registry_only
             extra = checkpoint_registry_only(evidence, set(package['expectedUIDs']))
             return (evidence.get('status') == 'completed'
                     and evidence.get('sourceSha256') == package['sourceSha256']
