@@ -7,6 +7,7 @@ from io import BytesIO
 from pathlib import Path
 from urllib.parse import parse_qs, urljoin, urlsplit
 from zipfile import BadZipFile, ZipFile
+from zlib import error as ZlibError
 from bs4 import BeautifulSoup
 
 
@@ -40,7 +41,7 @@ def verified_original_capsule(source, original, read_bytes):
             if (len(members) != 1 or members[0].file_size != len(original)
                     or archive.read(members[0]) != original):
                 return None
-    except (OSError, KeyError, ValueError, RuntimeError, NotImplementedError, BadZipFile):
+    except (OSError, KeyError, ValueError, RuntimeError, NotImplementedError, BadZipFile, EOFError, ZlibError):
         return None
     return {'sourceIdentityState': 'verified_source_identity',
             'originalCapsuleSHA256': capsule['sha256'],

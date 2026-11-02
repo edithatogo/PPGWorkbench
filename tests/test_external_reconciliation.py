@@ -55,6 +55,34 @@ class ReferenceScopeTests(unittest.TestCase):
         self.assertTrue(o['versionConflict']);self.assertFalse(o['clinicalApplicabilityAccepted'])
         self.assertEqual(r['nativeWrites'],0);self.assertFalse(r['completeExternalReferenceCoverage'])
 
+    def test_capsule_provenance_does_not_leak_to_following_plain_source(self):
+        capsule,p,files=self.capsule_case()
+        plain,_,_=self.setup_case();plain['documentUID']='plain'
+        r=reference_scope([{'DocumentUID':'fictional'},{'DocumentUID':'plain'}],
+                          [capsule,plain],[p],read_bytes=files.__getitem__)
+        self.assertEqual(r['occurrenceCount'],2)
+        self.assertIn('originalCapsuleSHA256',r['occurrences'][0])
+        for field in ('sourceIdentityState','originalCapsuleSHA256','originalCapsuleMember'):
+            self.assertNotIn(field,r['occurrences'][1])
+
+    def test_corrupt_compressed_member_is_held_and_next_source_is_inspected(self):
+        from io import BytesIO
+        from zipfile import ZIP_DEFLATED, ZipFile
+        s,p,files=self.capsule_case();out=BytesIO()
+        with ZipFile(out,'w',compression=ZIP_DEFLATED) as archive:
+            archive.writestr('historical.doc',files['original'])
+        raw=bytearray(out.getvalue())
+        data_start=30+int.from_bytes(raw[26:28],'little')+int.from_bytes(raw[28:30],'little')
+        raw[data_start]=7  # Reserved DEFLATE block type, with intact ZIP headers.
+        files['capsule']=bytes(raw)
+        s['originalCapsule']['sha256']=hashlib.sha256(files['capsule']).hexdigest()
+        plain,_,_=self.setup_case();plain['documentUID']='plain'
+        r=reference_scope([{'DocumentUID':'fictional'},{'DocumentUID':'plain'}],
+                          [s,plain],[p],read_bytes=files.__getitem__)
+        self.assertEqual(r['heldSources'][0]['reason'],'original_capsule_binding_unqualified')
+        self.assertEqual(r['occurrenceCount'],1)
+        self.assertEqual(r['occurrences'][0]['documentUID'],'plain')
+
     def test_unbound_or_ambiguous_original_capsules_stay_held(self):
         import copy
         valid=self.capsule_case()
