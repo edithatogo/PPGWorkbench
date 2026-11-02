@@ -67,3 +67,9 @@ replacing the body extraction. Bind its text path/hash, `inspectionKind` and
 select the already-qualified publisher hosts. Native reference data must retain
 the annotation representation and raw-dump hash alongside source/offset provenance.
 Missing annotations do not establish an absence of references in the policy body.
+
+Supply the complete validated publication/edition/capture records when reconciling
+URLs. An exact URL belonging to a retained capture or edition can identify its
+parent publication, provided that publication is present in the supplied catalogue.
+The result records the matching catalogue keys. It still does not establish the
+edition cited by a policy: a publisher can replace content at the same URL.

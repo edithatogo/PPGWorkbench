@@ -97,15 +97,24 @@ def reference_scope(catalogue, sources, publications, *, read_bytes,
         raise ValueError('Duplicate local catalogue identity')
     by_uid = {uid: [] for uid in ids}
     occurrences, held, seen = [], [], set()
-    urls = {}
+    urls, url_records = {}, {}
     nsqhs = []
+    publication_keys = {p['key'] for p in publications if p['kind'] == 'Publication'}
     for p in publications:
-        if p['kind'] != 'Publication':
+        if p['kind'] == 'Publication':
+            publication = p['key']
+            if publication == 'acsqhc:nsqhs':
+                nsqhs.append(publication)
+        elif p['kind'] in {'Edition', 'Capture'} and p.get('publicationKey') in publication_keys:
+            publication = p['publicationKey']
+        else:
             continue
-        if p['key'] == 'acsqhc:nsqhs':
-            nsqhs.append(p['key'])
-        for a in p['assertions']:
-            urls.setdefault(a['sourceURL'], set()).add(p['key'])
+        source_urls = {a['sourceURL'] for a in p.get('assertions', [])}
+        if p.get('data', {}).get('sourceURL'):
+            source_urls.add(p['data']['sourceURL'])
+        for source_url in source_urls:
+            urls.setdefault(source_url, set()).add(publication)
+            url_records.setdefault(source_url, set()).add(p['key'])
     pattern = re.compile(r'https?://[^\s<>"\x00-\x1f]+|\b(?:NSQHS(?:\s+Standards)?|National\s+Safety\s+and\s+Quality\s+Health\s+Service\s+Standards)\b', re.I)
     for s in sources:
         uid = s['documentUID']
@@ -170,6 +179,8 @@ def reference_scope(catalogue, sources, publications, *, read_bytes,
                 'resolution': 'publication-only' if len(candidates)==1 else 'ambiguous' if candidates else 'unresolved',
                 'editionKey': None, 'editionResolution': 'not-established-by-literal-match',
                 'versionConflict': s['versionConflict'], 'clinicalApplicabilityAccepted': False})
+            if is_url:
+                occurrences[-1]['urlMatchRecordKeys'] = sorted(url_records.get(locator, set()))
             if s.get('inspectionKind') == 'pdf-uri-annotations':
                 occurrences[-1].update(inspectionKind='pdf-uri-annotations',
                     annotationOutputSHA256=s['annotationOutputSHA256'],

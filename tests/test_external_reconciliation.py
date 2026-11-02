@@ -106,6 +106,17 @@ class ReferenceScopeTests(unittest.TestCase):
             self.assertTrue(all(x['reason']=='malformed_link_authority' for x in r['malformedLinks']))
             self.assertFalse(r['requiredRepresentationDenominatorDeclared'])
 
+    def test_exact_retained_capture_url_identifies_publication_not_cited_edition(self):
+        s,p,files=self.setup_case();url='https://publisher.example.org/original.pdf'
+        s['text']=url+' '+('fictional '*20);files['text']=s['text'].encode();s['textSHA256']=hashlib.sha256(files['text']).hexdigest()
+        records=[dict(kind='Publication',key='pub',assertions=[]),dict(kind='Capture',key='capture:one',publicationKey='pub',editionKey='edition:one',assertions=[],data={'sourceURL':url})]
+        r=reference_scope([{'DocumentUID':'fictional'}],[s],records,read_bytes=files.__getitem__,publisher_hosts=['publisher.example.org'],include_nsqhs_names=False)
+        o=r['occurrences'][0];self.assertEqual(o['candidatePublicationKeys'],['pub'])
+        self.assertEqual(o['urlMatchRecordKeys'],['capture:one']);self.assertEqual(o['resolution'],'publication-only')
+        self.assertIsNone(o['editionKey']);self.assertTrue(o['versionConflict'])
+        r=reference_scope([{'DocumentUID':'fictional'}],[s],records[1:],read_bytes=files.__getitem__,publisher_hosts=['publisher.example.org'],include_nsqhs_names=False)
+        self.assertEqual(r['resolutionCounts'],{'unresolved':1})
+
     def test_pdf_uri_inspection_preserves_pages_duplicates_and_encoded_targets(self):
         dump='Page  Type          URL\n   2  Annotation    https://publisher.example.org/one.pdf\n   2  Annotation    https://publisher.example.org/one.pdf\n   4  Annotation    https://www.google.com/url?url=https%3A%2F%2Fpublisher.example.org%2Ftwo.pdf\n'
         q=pdf_uri_inspection(dump,'1'*64,decode_url_wrappers=True)
