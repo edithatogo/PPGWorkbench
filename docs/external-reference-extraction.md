@@ -42,3 +42,42 @@ Neither output proves full bibliographic coverage or acquisition completeness.
 Use the installation's existing guarded writer and exact source bindings for
 native persistence. Preserve earlier records and protected no-retrieval decisions;
 verify the selected delta once and require zero-create unchanged replay.
+
+## PDF links omitted from body text
+
+Some retained PDFs store publisher links in URI annotations. Inspect the verified
+original with `pdfinfo -url` from the existing Poppler CLI. Retain its complete
+output privately with the original SHA256. This requires no publisher request.
+
+`pdf_uri_inspection(annotation_output, original_sha256)` converts that dump into a
+hashable annotation representation. It preserves physical page numbers, repeated
+URI occurrences and the raw dump hash. Unsupported/malformed URI values are
+recorded separately; unsupported dump rows require reconciliation. This function
+does not execute the CLI, retrieve links, review the policy body or prove an
+edition. The caller must verify the original bytes and bind the dump to that file.
+
+An explicit `decode_url_wrappers=True` also records the single encoded `url`
+parameter of a supported HTTPS redirect wrapper. The original wrapper is retained;
+no redirect is followed and its target remains an unverified identity pointer.
+
+Keep the returned inspection text as a new private representation, rather than
+replacing the body extraction. Bind its text path/hash, `inspectionKind` and
+`annotationOutputSHA256` in the source record before passing it to
+`reference_scope`. Use `include_nsqhs_names=False` for this URL-only pass and
+select the already-qualified publisher hosts. Native reference data must retain
+the annotation representation and raw-dump hash alongside source/offset provenance.
+Missing annotations do not establish an absence of references in the policy body.
+
+Supply the complete validated publication/edition/capture records when reconciling
+URLs. An exact URL belonging to a retained capture or edition can identify its
+parent publication, provided that publication is present in the supplied catalogue.
+The result records the matching catalogue keys. It still does not establish the
+edition cited by a policy: a publisher can replace content at the same URL.
+
+For a compact review list, `group_pdf_uri_occurrences(scope)` (CLI:
+`--group-pdf-uris`) groups the same URI within one retained source representation.
+It retains every original occurrence key, page, line and offset in
+`annotationOccurrences`. Group counts and physical annotation counts are separate.
+Different artifacts, extraction hashes, source identities or inconsistent
+resolutions are never combined. Keep existing native reference identities; a
+previously saved atomic reference is sufficient only for its own recorded span.

@@ -4,7 +4,7 @@ import hashlib
 import re
 from collections import Counter
 from pathlib import Path
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import parse_qs, urljoin, urlsplit
 from bs4 import BeautifulSoup
 
 
@@ -13,6 +13,69 @@ def sha(raw):
 
 
 DEFAULT_REFERENCE_HOSTS = frozenset({'www.safetyandquality.gov.au', 'safetyandquality.gov.au'})
+
+
+def pdf_uri_inspection(annotation_output, original_sha256, *, decode_url_wrappers=False):
+    """Render retained ``pdfinfo -url`` evidence without fetching any URI.
+
+    The caller must bind the dump to the original PDF. This representation is
+    annotation metadata, never a full-body review or publication/edition proof.
+    """
+    if (not isinstance(annotation_output, str) or len(annotation_output) > 8 * 1024 * 1024
+            or not re.fullmatch(r'[a-f0-9]{64}', original_sha256 or '')
+            or type(decode_url_wrappers) is not bool):
+        raise ValueError('Bound PDF annotation dump and explicit decoding flag required')
+    lines = annotation_output.splitlines()
+    if not lines or not re.fullmatch(r'\s*Page\s+Type\s+URL\s*', lines[0]):
+        raise ValueError('Expected pdfinfo URL header')
+    entries, ignored, pages = [], [], {}
+    for ordinal, line in enumerate(lines[1:]):
+        if not line.strip():
+            continue
+        match = re.fullmatch(r'\s*([0-9]+)\s+Annotation\s+(.+?)\s*', line)
+        if not match or not 1 <= int(match[1]) <= 10000:
+            raise ValueError('Unsupported PDF annotation row; preserve dump for reconciliation')
+        page, raw_url = int(match[1]), match[2]
+        try:
+            parsed = urlsplit(raw_url)
+            valid = (parsed.scheme in {'http', 'https'} and parsed.hostname and not parsed.username
+                and not parsed.password and not re.search(r'[\s\\]', raw_url))
+            parsed.port
+        except ValueError:
+            valid = False
+        if not valid:
+            ignored.append({'ordinal': ordinal, 'page': page, 'rawURL': raw_url,
+                            'reason': 'unsupported_or_malformed_URI'})
+            continue
+        entry = {'ordinal': ordinal, 'page': page, 'rawURL': raw_url, 'decodedTarget': None}
+        pages.setdefault(page, []).append('PDF URI ' + str(ordinal) + ': ' + raw_url)
+        if (decode_url_wrappers and parsed.scheme == 'https' and parsed.hostname == 'www.google.com'
+                and parsed.path == '/url' and parsed.port in (None, 443)):
+            values = parse_qs(parsed.query).get('url', [])
+            if len(values) == 1:
+                try:
+                    target = urlsplit(values[0])
+                    allowed = (target.scheme in {'http', 'https'} and target.hostname
+                        and not target.username and not target.password and target.port in (None, 80, 443)
+                        and not re.search(r'[\s\\]', values[0]))
+                except ValueError:
+                    allowed = False
+                if allowed:
+                    entry['decodedTarget'] = values[0]
+                    pages[page].append('Encoded URL target ' + str(ordinal) + ': ' + values[0])
+        entries.append(entry)
+    rendered = ['PDF URI annotation inspection; not a body-text review.\nOriginal SHA256: ' + original_sha256]
+    for page in range(1, max(pages, default=0) + 1):
+        content = '\n'.join(pages.get(page, []))
+        if page == 1:
+            rendered[0] += '\n' + content
+        else:
+            rendered.append(content)
+    text = '\f'.join(rendered)
+    return {'inspectionKind': 'pdf-uri-annotations', 'text': text,
+            'textSHA256': sha(text.encode()), 'annotationOutputSHA256': sha(annotation_output.encode()),
+            'entries': entries, 'ignoredURIs': ignored, 'retrievals': 0,
+            'fullTextReview': False, 'editionVerified': False}
 
 
 def reference_scope(catalogue, sources, publications, *, read_bytes,
@@ -34,15 +97,24 @@ def reference_scope(catalogue, sources, publications, *, read_bytes,
         raise ValueError('Duplicate local catalogue identity')
     by_uid = {uid: [] for uid in ids}
     occurrences, held, seen = [], [], set()
-    urls = {}
+    urls, url_records = {}, {}
     nsqhs = []
+    publication_keys = {p['key'] for p in publications if p['kind'] == 'Publication'}
     for p in publications:
-        if p['kind'] != 'Publication':
+        if p['kind'] == 'Publication':
+            publication = p['key']
+            if publication == 'acsqhc:nsqhs':
+                nsqhs.append(publication)
+        elif p['kind'] in {'Edition', 'Capture'} and p.get('publicationKey') in publication_keys:
+            publication = p['publicationKey']
+        else:
             continue
-        if p['key'] == 'acsqhc:nsqhs':
-            nsqhs.append(p['key'])
-        for a in p['assertions']:
-            urls.setdefault(a['sourceURL'], set()).add(p['key'])
+        source_urls = {a['sourceURL'] for a in p.get('assertions', [])}
+        if p.get('data', {}).get('sourceURL'):
+            source_urls.add(p['data']['sourceURL'])
+        for source_url in source_urls:
+            urls.setdefault(source_url, set()).add(publication)
+            url_records.setdefault(source_url, set()).add(p['key'])
     pattern = re.compile(r'https?://[^\s<>"\x00-\x1f]+|\b(?:NSQHS(?:\s+Standards)?|National\s+Safety\s+and\s+Quality\s+Health\s+Service\s+Standards)\b', re.I)
     for s in sources:
         uid = s['documentUID']
@@ -74,7 +146,7 @@ def reference_scope(catalogue, sources, publications, *, read_bytes,
             literal = m.group()
             is_url = literal.lower().startswith(('https://', 'http://'))
             locator = literal if is_url else None
-            if is_url and locator not in urls:
+            if is_url and locator not in urls and s.get('inspectionKind') != 'pdf-uri-annotations':
                 while True:
                     prior = locator
                     locator = locator.rstrip('.,;:')
@@ -107,6 +179,12 @@ def reference_scope(catalogue, sources, publications, *, read_bytes,
                 'resolution': 'publication-only' if len(candidates)==1 else 'ambiguous' if candidates else 'unresolved',
                 'editionKey': None, 'editionResolution': 'not-established-by-literal-match',
                 'versionConflict': s['versionConflict'], 'clinicalApplicabilityAccepted': False})
+            if is_url:
+                occurrences[-1]['urlMatchRecordKeys'] = sorted(url_records.get(locator, set()))
+            if s.get('inspectionKind') == 'pdf-uri-annotations':
+                occurrences[-1].update(inspectionKind='pdf-uri-annotations',
+                    annotationOutputSHA256=s['annotationOutputSHA256'],
+                    method='literal-PDF-URI-annotation')
     states = []
     for uid, values in by_uid.items():
         state = 'no-retained-source' if not values else 'all-retained-texts-inspected' if set(values)=={'inspected'} else 'some-retained-text-held'
@@ -120,6 +198,33 @@ def reference_scope(catalogue, sources, publications, *, read_bytes,
         'heldSources':held, 'occurrenceCount':len(occurrences), 'occurrences':occurrences,
         'resolutionCounts':dict(Counter(x['resolution'] for x in occurrences)),
         'nativeWrites':0, 'completeExternalReferenceCoverage':False, 'clinicalApplicabilityAccepted':False}
+
+
+def group_pdf_uri_occurrences(scope):
+    """Group repeated annotation objects, retaining every original occurrence key."""
+    if scope.get('occurrenceCount') != len(scope.get('occurrences', [])):
+        raise ValueError('PDF annotation occurrence denominator mismatch')
+    groups, keys = {}, set()
+    for row in scope['occurrences']:
+        if row.get('inspectionKind') != 'pdf-uri-annotations' or row['key'] in keys:
+            raise ValueError('Unique PDF annotation occurrences required')
+        keys.add(row['key'])
+        identity = tuple(row[k] for k in ('documentUID','originalSHA256','textSHA256','sourceVersion','literal'))
+        if identity not in groups:
+            groups[identity] = {**row, 'annotationOccurrences': []}
+        group = groups[identity]
+        if any(group.get(k) != row.get(k) for k in (
+                'candidatePublicationKeys','resolution','editionKey','versionConflict',
+                'annotationOutputSHA256','urlMatchRecordKeys')):
+            raise ValueError('Inconsistent annotation resolution/source provenance')
+        group['annotationOccurrences'].append({k: row[k] for k in ('key','start','end','page','line')})
+    rows = list(groups.values())
+    if sum(len(row['annotationOccurrences']) for row in rows) != len(keys):
+        raise ValueError('PDF annotation grouping lost an occurrence')
+    return {**scope, 'occurrences': rows, 'occurrenceCount': len(rows),
+            'annotationOccurrenceCount': len(keys),
+            'grouping': 'one URI per retained source representation; all annotation locations retained',
+            'resolutionCounts': dict(Counter(row['resolution'] for row in rows))}
 
 
 def representation_scope(bundle, root):
@@ -186,6 +291,8 @@ def main(argv=None):
     parser.add_argument('--publisher-host', action='append', metavar='HOST',
                         help='Explicit qualified URL host; repeat for a bounded source family')
     parser.add_argument('--no-nsqhs-names', action='store_true')
+    parser.add_argument('--group-pdf-uris', action='store_true',
+                        help='Group repeated PDF URI objects while retaining all occurrence locators')
     args=parser.parse_args(argv)
     if args.output_dir.exists():
         raise ValueError('New private output directory required')
@@ -208,6 +315,8 @@ def main(argv=None):
         return p.read_bytes()
     refs=reference_scope(local['catalogue'],local['sources'],bundle['records'],read_bytes=read,
         publisher_hosts=args.publisher_host,include_nsqhs_names=not args.no_nsqhs_names)
+    if args.group_pdf_uris:
+        refs=group_pdf_uri_occurrences(refs)
     reps=representation_scope(bundle,args.capture_root)
     outputs={'references.json':refs,'representations.json':reps}
     args.output_dir.mkdir(mode=0o700)

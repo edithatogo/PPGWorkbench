@@ -1,7 +1,7 @@
 import hashlib
 import unittest
 try:
-    from scripts.ppg_external_reconciliation import reference_scope, representation_scope
+    from scripts.ppg_external_reconciliation import group_pdf_uri_occurrences, pdf_uri_inspection, reference_scope, representation_scope
 except ModuleNotFoundError as error:
     if error.name != 'bs4':
         raise
@@ -105,6 +105,74 @@ class ReferenceScopeTests(unittest.TestCase):
             self.assertEqual(len(r['malformedLinks']),2)
             self.assertTrue(all(x['reason']=='malformed_link_authority' for x in r['malformedLinks']))
             self.assertFalse(r['requiredRepresentationDenominatorDeclared'])
+
+    def test_exact_retained_capture_url_identifies_publication_not_cited_edition(self):
+        s,p,files=self.setup_case();url='https://publisher.example.org/original.pdf'
+        s['text']=url+' '+('fictional '*20);files['text']=s['text'].encode();s['textSHA256']=hashlib.sha256(files['text']).hexdigest()
+        records=[dict(kind='Publication',key='pub',assertions=[]),dict(kind='Capture',key='capture:one',publicationKey='pub',editionKey='edition:one',assertions=[],data={'sourceURL':url})]
+        r=reference_scope([{'DocumentUID':'fictional'}],[s],records,read_bytes=files.__getitem__,publisher_hosts=['publisher.example.org'],include_nsqhs_names=False)
+        o=r['occurrences'][0];self.assertEqual(o['candidatePublicationKeys'],['pub'])
+        self.assertEqual(o['urlMatchRecordKeys'],['capture:one']);self.assertEqual(o['resolution'],'publication-only')
+        self.assertIsNone(o['editionKey']);self.assertTrue(o['versionConflict'])
+        r=reference_scope([{'DocumentUID':'fictional'}],[s],records[1:],read_bytes=files.__getitem__,publisher_hosts=['publisher.example.org'],include_nsqhs_names=False)
+        self.assertEqual(r['resolutionCounts'],{'unresolved':1})
+
+    def test_pdf_uri_inspection_preserves_pages_duplicates_and_encoded_targets(self):
+        dump='Page  Type          URL\n   2  Annotation    https://publisher.example.org/one.pdf\n   2  Annotation    https://publisher.example.org/one.pdf\n   4  Annotation    https://www.google.com/url?url=https%3A%2F%2Fpublisher.example.org%2Ftwo.pdf\n'
+        q=pdf_uri_inspection(dump,'1'*64,decode_url_wrappers=True)
+        self.assertEqual(len(q['entries']),3)
+        self.assertEqual(q['entries'][2]['decodedTarget'],'https://publisher.example.org/two.pdf')
+        self.assertEqual(q['text'].split('\f')[1].count('https://publisher.example.org/one.pdf'),2)
+        self.assertIn('Encoded URL target',q['text'].split('\f')[3])
+        self.assertEqual(q['retrievals'],0);self.assertFalse(q['fullTextReview'])
+        self.assertFalse(pdf_uri_inspection(dump,'1'*64)['entries'][2]['decodedTarget'])
+        self.assertEqual(q['annotationOutputSHA256'],hashlib.sha256(dump.encode()).hexdigest())
+
+    def test_pdf_uri_inspection_refuses_bad_dump_and_records_bad_uris(self):
+        for dump in ['wrong header','Page Type URL\n0 Annotation https://publisher.example.org/x','Page Type URL\n1 Unknown https://publisher.example.org/x']:
+            with self.assertRaises(ValueError):pdf_uri_inspection(dump,'1'*64)
+        q=pdf_uri_inspection('Page Type URL\n1 Annotation mailto:fictional@example.org\n1 Annotation https://publisher.example.org:invalid/x\n1 Annotation https://publisher.example.org/space here','1'*64)
+        self.assertEqual(len(q['ignoredURIs']),3);self.assertEqual(q['entries'],[])
+        with self.assertRaises(ValueError):pdf_uri_inspection('Page Type URL','bad')
+
+    def test_pdf_annotation_reference_scope_retains_representation_provenance(self):
+        s,p,files=self.setup_case();dump='Page Type URL\n3 Annotation https://publisher.example.org/guideline.pdf'
+        q=pdf_uri_inspection(dump,s['originalSHA256'])
+        s.update(text=q['text'],textSHA256=q['textSHA256'],inspectionKind=q['inspectionKind'],annotationOutputSHA256=q['annotationOutputSHA256'])
+        files['text']=q['text'].encode()
+        r=reference_scope([{'DocumentUID':'fictional'}],[s],[],read_bytes=files.__getitem__,publisher_hosts=['publisher.example.org'],include_nsqhs_names=False)
+        self.assertEqual(r['occurrenceCount'],1);o=r['occurrences'][0]
+        self.assertEqual(o['page'],3);self.assertEqual(o['inspectionKind'],'pdf-uri-annotations')
+        self.assertEqual(o['annotationOutputSHA256'],q['annotationOutputSHA256'])
+        self.assertEqual(o['method'],'literal-PDF-URI-annotation');self.assertEqual(o['resolution'],'unresolved')
+
+    def test_explicit_annotation_uri_is_not_trimmed_as_prose(self):
+        s,p,files=self.setup_case();base='https://publisher.example.org/guideline'
+        for suffix in ['.',';',')']:
+            q=pdf_uri_inspection('Page Type URL\n1 Annotation '+base+suffix,s['originalSHA256'])
+            s.update(text=q['text'],textSHA256=q['textSHA256'],inspectionKind=q['inspectionKind'],annotationOutputSHA256=q['annotationOutputSHA256']);files['text']=q['text'].encode()
+            records=[dict(kind='Publication',key='pub',assertions=[{'sourceURL':base}])]
+            r=reference_scope([{'DocumentUID':'fictional'}],[s],records,read_bytes=files.__getitem__,publisher_hosts=['publisher.example.org'],include_nsqhs_names=False)
+            self.assertEqual(r['resolutionCounts'],{'unresolved':1})
+            self.assertEqual(r['occurrences'][0]['literal'],base+suffix)
+            self.assertEqual(r['occurrences'][0]['urlMatchRecordKeys'],[])
+        empty=pdf_uri_inspection('Page Type URL','1'*64)
+        invalid=pdf_uri_inspection('Page Type URL\n1 Annotation mailto:fictional@example.org','1'*64)
+        self.assertEqual(empty['text'],invalid['text']);self.assertFalse(empty['text'].endswith('\n'))
+
+    def test_annotation_grouping_preserves_every_physical_location(self):
+        s,p,files=self.setup_case();q=pdf_uri_inspection('Page Type URL\n1 Annotation https://publisher.example.org/x\n2 Annotation https://publisher.example.org/x',s['originalSHA256'])
+        s.update(text=q['text'],textSHA256=q['textSHA256'],inspectionKind=q['inspectionKind'],annotationOutputSHA256=q['annotationOutputSHA256']);files['text']=q['text'].encode()
+        r=reference_scope([{'DocumentUID':'fictional'}],[s],[],read_bytes=files.__getitem__,publisher_hosts=['publisher.example.org'],include_nsqhs_names=False)
+        grouped=group_pdf_uri_occurrences(r)
+        self.assertEqual(grouped['occurrenceCount'],1);self.assertEqual(grouped['annotationOccurrenceCount'],2)
+        self.assertEqual({x['key'] for x in grouped['occurrences'][0]['annotationOccurrences']},{x['key'] for x in r['occurrences']})
+        self.assertEqual([x['page'] for x in grouped['occurrences'][0]['annotationOccurrences']],[1,2])
+        import copy
+        bad=copy.deepcopy(r);bad['occurrences'][1]['versionConflict']=False
+        with self.assertRaises(ValueError):group_pdf_uri_occurrences(bad)
+        bad=copy.deepcopy(r);bad['occurrenceCount']=3
+        with self.assertRaises(ValueError):group_pdf_uri_occurrences(bad)
 
     def test_cli_manifest_is_create_only_and_binds_inputs(self):
         import tempfile,json,contextlib,io
