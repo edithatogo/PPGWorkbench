@@ -73,7 +73,15 @@ def reference_scope(catalogue, sources, publications, *, read_bytes,
         for m in pattern.finditer(text):
             literal = m.group()
             is_url = literal.lower().startswith(('https://', 'http://'))
-            locator = literal.rstrip('.,;:)') if is_url else None
+            locator = literal if is_url else None
+            if is_url and locator not in urls:
+                while True:
+                    prior = locator
+                    locator = locator.rstrip('.,;:')
+                    if locator.endswith(')') and locator.count(')') > locator.count('('):
+                        locator = locator[:-1]
+                    if locator == prior:
+                        break
             # Literal occurrences are retrieval candidates, never fetched or edition-adopted.
             if not is_url and not include_nsqhs_names:
                 continue
@@ -121,7 +129,7 @@ def representation_scope(bundle, root):
     absence among captures is a gap, not an exclusion or withdrawal decision.
     """
     records = bundle['records']; captures = [r for r in records if r['kind']=='Capture']
-    inventory, gaps = [], []
+    inventory, gaps, malformed = [], [], []
     for p in records:
         if p['kind']!='Publication' or not p['requiredCapture']:
             continue
@@ -139,10 +147,16 @@ def representation_scope(bundle, root):
             if main is None:
                 raise ValueError('Publication main content absent')
             for ordinal,link in enumerate(main.find_all('a',href=True)):
-                target=urljoin(d['sourceURL'],link['href']); u=urlsplit(target)
+                try:
+                    target=urljoin(d['sourceURL'],link['href']); u=urlsplit(target)
+                    port=u.port
+                except ValueError:
+                    malformed.append({'publicationKey':p['key'],'sourceCaptureKey':page['key'],
+                        'ordinal':ordinal,'rawHref':link['href'],'reason':'malformed_link_authority'})
+                    continue
                 if not u.path.lower().endswith('.pdf'):
                     continue
-                same_origin=u.scheme=='https' and u.hostname=='www.safetyandquality.gov.au' and not u.username and not u.password and u.port in (None,443)
+                same_origin=u.scheme=='https' and u.hostname=='www.safetyandquality.gov.au' and not u.username and not u.password and port in (None,443)
                 matches=[c for c in captures if c['publicationKey']==p['key'] and c['data']['sourceURL']==target]
                 inventory.append({'publicationKey':p['key'],'sourceCaptureKey':page['key'],
                     'sourceSHA256':d['sha256'],'ordinal':ordinal,'rawHref':link['href'],
@@ -154,6 +168,7 @@ def representation_scope(bundle, root):
     return {'kind':'ppg-required-representation-candidates-v1','candidates':inventory,
         'candidateOccurrences':len(inventory),'uniquePublicationURLs':len({(x['publicationKey'],x['url']) for x in inventory}),
         'notRetainedOccurrences':sum(not x['captureKeys'] for x in inventory),'pageGaps':gaps,
+        'malformedLinks':malformed,
         'requiredRepresentationDenominatorDeclared':False,'nativeWrites':0,'milestoneAccepted':False}
 
 

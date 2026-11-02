@@ -58,6 +58,15 @@ class ReferenceScopeTests(unittest.TestCase):
         files['text']+=b'changed'
         self.assertEqual(reference_scope([{'DocumentUID':'fictional'}],[s],pubs,**options)['occurrenceCount'],0)
 
+    def test_balanced_url_parentheses_and_citation_punctuation(self):
+        s,p,files=self.setup_case();url='https://publisher.example.org/guideline(2026)'
+        s['text']=url+' '+url+'). '+('fictional '*20)
+        files['text']=s['text'].encode();s['textSHA256']=hashlib.sha256(files['text']).hexdigest()
+        pubs=[dict(kind='Publication',key='pub',assertions=[{'sourceURL':url}])]
+        r=reference_scope([{'DocumentUID':'fictional'}],[s],pubs,read_bytes=files.__getitem__,publisher_hosts=['publisher.example.org'],include_nsqhs_names=False)
+        self.assertEqual(r['resolutionCounts'],{'publication-only':2})
+        self.assertTrue(all(x['candidatePublicationKeys']==['pub'] for x in r['occurrences']))
+
     def test_unqualified_reference_host_and_flag_refused(self):
         s,p,files=self.setup_case()
         for hosts,flag in [([],False),(['evil.test/path'],False),(['publisher.example.org'],1)]:
@@ -82,6 +91,20 @@ class ReferenceScopeTests(unittest.TestCase):
             self.assertEqual(r['notRetainedOccurrences'],2)
             Path(temp,'page.html').write_bytes(raw+b'edit')
             with self.assertRaises(ValueError):representation_scope({'records':[pub,page]},temp)
+
+    def test_malformed_representation_link_does_not_discard_valid_candidates(self):
+        import tempfile
+        from pathlib import Path
+        raw=b'<main><a href="https://www.safetyandquality.gov.au:invalid/bad.pdf">Bad port</a><a href="https://[broken/file.pdf">Bad bracket</a><a href="/valid.pdf">Valid</a></main>'
+        with tempfile.TemporaryDirectory() as temp:
+            Path(temp,'page.html').write_bytes(raw)
+            pub=dict(kind='Publication',key='pub',requiredCapture=True)
+            page=dict(kind='Capture',key='page',publicationKey='pub',editionKey=None,data=dict(mimeType='text/html',file='page.html',sha256=hashlib.sha256(raw).hexdigest(),bytes=len(raw),sourceURL='https://www.safetyandquality.gov.au/resources/fictional'))
+            r=representation_scope({'records':[pub,page]},temp)
+            self.assertEqual(r['candidateOccurrences'],1)
+            self.assertEqual(len(r['malformedLinks']),2)
+            self.assertTrue(all(x['reason']=='malformed_link_authority' for x in r['malformedLinks']))
+            self.assertFalse(r['requiredRepresentationDenominatorDeclared'])
 
     def test_cli_manifest_is_create_only_and_binds_inputs(self):
         import tempfile,json,contextlib,io

@@ -60,7 +60,7 @@ jobs:
           node --check tools/external-catalogue/native.mjs
           node --test tests/test_external_catalogue.mjs
       - name: Lint changed catalogue modules
-        run: .venv/bin/ruff check --select E9,F scripts/ppg_external_catalogue.py tests/test_external_catalogue.py
+        run: .venv/bin/ruff check --select E9,F scripts/ppg_external_catalogue.py scripts/ppg_external_reconciliation.py tests/test_external_catalogue.py tests/test_external_reconciliation.py
       - name: Audit workflow and locked runtime dependencies
         env:
           GH_TOKEN: ${{ github.token }}
