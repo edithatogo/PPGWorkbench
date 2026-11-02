@@ -62,6 +62,12 @@ function footerFor(path) {
     txtContent: 'Upload updated PPG for this record' }] };
 }
 
+function conditionalMerge(resource) {
+  const etag = resource.registryResponseETag ?? resource['@odata.etag'] ?? resource['odata.etag'];
+  assert(typeof etag === 'string' && /^(W\/)?"[^"\r\n]+"$/.test(etag), 'Shared metadata update requires an exact ETag; reconcile this setting in SharePoint');
+  return { ...MERGE, 'If-Match': etag };
+}
+
 async function provisionData({ read, change, lib, queue, api, root }) {
   const choicesPath = fieldPath(lib, 'PPGCaptureKind');
   const getKind = () => read(choicesPath + '?$select=TypeAsString,Choices');
@@ -70,7 +76,7 @@ async function provisionData({ read, change, lib, queue, api, root }) {
   assert(kind.Choices.includes('Document') && kind.Choices.includes('Supporting source page'), 'Capture choices conflict');
   if (!kind.Choices.includes(KIND)) {
     const choices = [...kind.Choices, KIND];
-    await change('add-review-choice', choicesPath, { Choices: choices }, MERGE);
+    await change('add-review-choice', choicesPath, { Choices: choices }, conditionalMerge(kind));
     assert.deepEqual((await getKind()).Choices, choices);
   }
 
@@ -179,9 +185,8 @@ async function ensureFooter(ctx, path) {
     return;
   }
   assert(!initial.ReadOnly && !initial.Sealed, 'Registry content type is locked');
-  assert.equal((await get()).ClientFormCustomFormatter, initial.ClientFormCustomFormatter, 'Registry form changed');
   const desired = { ...format, footerJSONFormatter: footer };
-  await change('add-registry-footer', endpoint, { ClientFormCustomFormatter: JSON.stringify(desired) }, MERGE);
+  await change('add-registry-footer', endpoint, { ClientFormCustomFormatter: JSON.stringify(desired) }, conditionalMerge(initial));
   assert.deepEqual(JSON.parse((await get()).ClientFormCustomFormatter), desired);
 }
 

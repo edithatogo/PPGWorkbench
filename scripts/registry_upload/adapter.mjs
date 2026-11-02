@@ -65,6 +65,9 @@ export async function connect(settings, binding, receiptDirectory) {
       fs.appendFileSync(path.join(receiptDirectory,'history.jsonl'),JSON.stringify({...intent,at:new Date().toISOString()})+'\n',{mode:0o600});
       fs.unlinkSync(journal);
     }
+    if (method === 'GET' && sp && response.headers?.etag && response.data && typeof response.data === 'object' && !ArrayBuffer.isView(response.data)) {
+      Object.defineProperty(response.data, 'registryResponseETag', {value:response.headers.etag});
+    }
     return response.data;
   }
   const read = async url => {
