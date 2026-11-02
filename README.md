@@ -233,3 +233,5 @@ and fictional tests do not establish native deployment or institutional issuance
 [Dataset catalogue, accreditation examples and release modes](docs/pgy1-portability-and-dataset-catalogue.md)
 
 See [dataset roles, Used by and business roadmap](docs/dataset-use-and-roadmap.md).
+
+[Deploy and verify the Registry upload CLI](docs/registry-upload-cli.md) on an existing workbench.
