@@ -4,7 +4,7 @@ import hashlib
 import re
 from collections import Counter
 from pathlib import Path
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import parse_qs, urljoin, urlsplit
 from bs4 import BeautifulSoup
 
 
@@ -13,6 +13,69 @@ def sha(raw):
 
 
 DEFAULT_REFERENCE_HOSTS = frozenset({'www.safetyandquality.gov.au', 'safetyandquality.gov.au'})
+
+
+def pdf_uri_inspection(annotation_output, original_sha256, *, decode_url_wrappers=False):
+    """Render retained ``pdfinfo -url`` evidence without fetching any URI.
+
+    The caller must bind the dump to the original PDF. This representation is
+    annotation metadata, never a full-body review or publication/edition proof.
+    """
+    if (not isinstance(annotation_output, str) or len(annotation_output) > 8 * 1024 * 1024
+            or not re.fullmatch(r'[a-f0-9]{64}', original_sha256 or '')
+            or type(decode_url_wrappers) is not bool):
+        raise ValueError('Bound PDF annotation dump and explicit decoding flag required')
+    lines = annotation_output.splitlines()
+    if not lines or not re.fullmatch(r'\s*Page\s+Type\s+URL\s*', lines[0]):
+        raise ValueError('Expected pdfinfo URL header')
+    entries, ignored, pages = [], [], {}
+    for ordinal, line in enumerate(lines[1:]):
+        if not line.strip():
+            continue
+        match = re.fullmatch(r'\s*([0-9]+)\s+Annotation\s+(.+?)\s*', line)
+        if not match or not 1 <= int(match[1]) <= 10000:
+            raise ValueError('Unsupported PDF annotation row; preserve dump for reconciliation')
+        page, raw_url = int(match[1]), match[2]
+        try:
+            parsed = urlsplit(raw_url)
+            valid = (parsed.scheme in {'http', 'https'} and parsed.hostname and not parsed.username
+                and not parsed.password and not re.search(r'[\s\\]', raw_url))
+            parsed.port
+        except ValueError:
+            valid = False
+        if not valid:
+            ignored.append({'ordinal': ordinal, 'page': page, 'rawURL': raw_url,
+                            'reason': 'unsupported_or_malformed_URI'})
+            continue
+        entry = {'ordinal': ordinal, 'page': page, 'rawURL': raw_url, 'decodedTarget': None}
+        pages.setdefault(page, []).append('PDF URI ' + str(ordinal) + ': ' + raw_url)
+        if (decode_url_wrappers and parsed.scheme == 'https' and parsed.hostname == 'www.google.com'
+                and parsed.path == '/url' and parsed.port in (None, 443)):
+            values = parse_qs(parsed.query).get('url', [])
+            if len(values) == 1:
+                try:
+                    target = urlsplit(values[0])
+                    allowed = (target.scheme in {'http', 'https'} and target.hostname
+                        and not target.username and not target.password and target.port in (None, 80, 443)
+                        and not re.search(r'[\s\\]', values[0]))
+                except ValueError:
+                    allowed = False
+                if allowed:
+                    entry['decodedTarget'] = values[0]
+                    pages[page].append('Encoded URL target ' + str(ordinal) + ': ' + values[0])
+        entries.append(entry)
+    rendered = ['PDF URI annotation inspection; not a body-text review.\nOriginal SHA256: ' + original_sha256]
+    for page in range(1, max(pages, default=1) + 1):
+        content = '\n'.join(pages.get(page, []))
+        if page == 1:
+            rendered[0] += '\n' + content
+        else:
+            rendered.append(content)
+    text = '\f'.join(rendered)
+    return {'inspectionKind': 'pdf-uri-annotations', 'text': text,
+            'textSHA256': sha(text.encode()), 'annotationOutputSHA256': sha(annotation_output.encode()),
+            'entries': entries, 'ignoredURIs': ignored, 'retrievals': 0,
+            'fullTextReview': False, 'editionVerified': False}
 
 
 def reference_scope(catalogue, sources, publications, *, read_bytes,
@@ -107,6 +170,10 @@ def reference_scope(catalogue, sources, publications, *, read_bytes,
                 'resolution': 'publication-only' if len(candidates)==1 else 'ambiguous' if candidates else 'unresolved',
                 'editionKey': None, 'editionResolution': 'not-established-by-literal-match',
                 'versionConflict': s['versionConflict'], 'clinicalApplicabilityAccepted': False})
+            if s.get('inspectionKind') == 'pdf-uri-annotations':
+                occurrences[-1].update(inspectionKind='pdf-uri-annotations',
+                    annotationOutputSHA256=s['annotationOutputSHA256'],
+                    method='literal-PDF-URI-annotation')
     states = []
     for uid, values in by_uid.items():
         state = 'no-retained-source' if not values else 'all-retained-texts-inspected' if set(values)=={'inspected'} else 'some-retained-text-held'
