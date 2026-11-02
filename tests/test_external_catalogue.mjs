@@ -69,9 +69,13 @@ test('selected exact metadata origin reaches persistence and unchanged replay',a
  assert.equal((await persist(options)).created,0);
  for(const url of ['https://updates.publisher.example.evil.test/doc.pdf',
   'https://other.publisher.example/doc.pdf','https://user@updates.publisher.example/doc.pdf',
-  'https://updates.publisher.example:444/doc.pdf','https://updates.publisher.example/doc.pdf#x',
+  'https://updates.publisher.example:444/doc.pdf','https://updates.publisher.example:0/doc.pdf','https://updates.publisher.example/doc.pdf#x',
   'https://updates.publisher.example/\\doc.pdf','https://updates.publisher.example/\tfile.pdf']){
   assert.throws(()=>checkRows([{...selected,OfficialURL:url}],undefined,['updates.publisher.example']));
  }
  assert.throws(()=>checkRows([selected],undefined,'updates.publisher.example'),/COLLECTION_REQUIRED/);
+});
+
+test('an explicitly written default HTTPS port preserves the original source URL',()=>{
+ checkRows([{...row,OfficialURL:'https://updates.publisher.example:443/doc.pdf'}],undefined,['updates.publisher.example']);
 });

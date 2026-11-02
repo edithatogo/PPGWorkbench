@@ -63,12 +63,12 @@ def page_inventory(raw, url, *, official_hosts=None):
     entries, outside = [], []
     for i, link in enumerate(main.find_all('a', href=True)):
         target = urljoin(url, link['href'])
-        u = urlsplit(target)
-        if u.fragment or u.scheme != 'https' or u.hostname != HOST:
+        try:
+            official_url(target, official_hosts)
+        except ValueError:
             outside.append(dict(occurrence=i, rawHref=link['href'], label=link.get_text(' ', strip=True),
-                                reason='Outside selected same-origin publication-link scope'))
+                                reason='Outside selected publisher publication-link scope'))
             continue
-        official_url(target)
         label = link.get_text(' ', strip=True)
         if label:
             entries.append(dict(occurrence=i, url=target, rawHref=link['href'], label=label,

@@ -45,8 +45,13 @@ class ExternalCatalogue(unittest.TestCase):
         bundle = self.fixture()
         for record in bundle['records']:
             record['assertions'][0]['sourceURL'] = 'https://updates.publisher.example/doc.pdf'
-        page_inventory(b'<main><h1>Fictional publisher</h1></main>',
-                       'https://updates.publisher.example/index', official_hosts=hosts)
+        inventory = page_inventory(
+            b'<main><h1>Fictional publisher</h1><a href="/doc.pdf?record=A%2F1">Document</a>'
+            b'<a href="https://updates.publisher.example.evil.test/doc.pdf">Spoof</a></main>',
+            'https://updates.publisher.example/index', official_hosts=hosts)
+        self.assertEqual([r['url'] for r in inventory['occurrences']],
+                         ['https://updates.publisher.example/doc.pdf?record=A%2F1'])
+        self.assertEqual(len(inventory['outsideSelectedScope']), 1)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             rows = payloads(bundle, official_hosts=hosts)
