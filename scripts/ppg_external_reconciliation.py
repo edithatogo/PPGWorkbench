@@ -200,6 +200,33 @@ def reference_scope(catalogue, sources, publications, *, read_bytes,
         'nativeWrites':0, 'completeExternalReferenceCoverage':False, 'clinicalApplicabilityAccepted':False}
 
 
+def group_pdf_uri_occurrences(scope):
+    """Group repeated annotation objects, retaining every original occurrence key."""
+    if scope.get('occurrenceCount') != len(scope.get('occurrences', [])):
+        raise ValueError('PDF annotation occurrence denominator mismatch')
+    groups, keys = {}, set()
+    for row in scope['occurrences']:
+        if row.get('inspectionKind') != 'pdf-uri-annotations' or row['key'] in keys:
+            raise ValueError('Unique PDF annotation occurrences required')
+        keys.add(row['key'])
+        identity = tuple(row[k] for k in ('documentUID','originalSHA256','textSHA256','sourceVersion','literal'))
+        if identity not in groups:
+            groups[identity] = {**row, 'annotationOccurrences': []}
+        group = groups[identity]
+        if any(group.get(k) != row.get(k) for k in (
+                'candidatePublicationKeys','resolution','editionKey','versionConflict',
+                'annotationOutputSHA256','urlMatchRecordKeys')):
+            raise ValueError('Inconsistent annotation resolution/source provenance')
+        group['annotationOccurrences'].append({k: row[k] for k in ('key','start','end','page','line')})
+    rows = list(groups.values())
+    if sum(len(row['annotationOccurrences']) for row in rows) != len(keys):
+        raise ValueError('PDF annotation grouping lost an occurrence')
+    return {**scope, 'occurrences': rows, 'occurrenceCount': len(rows),
+            'annotationOccurrenceCount': len(keys),
+            'grouping': 'one URI per retained source representation; all annotation locations retained',
+            'resolutionCounts': dict(Counter(row['resolution'] for row in rows))}
+
+
 def representation_scope(bundle, root):
     """Enumerate literal PDF links in every selected publication HTML capture.
 
@@ -264,6 +291,8 @@ def main(argv=None):
     parser.add_argument('--publisher-host', action='append', metavar='HOST',
                         help='Explicit qualified URL host; repeat for a bounded source family')
     parser.add_argument('--no-nsqhs-names', action='store_true')
+    parser.add_argument('--group-pdf-uris', action='store_true',
+                        help='Group repeated PDF URI objects while retaining all occurrence locators')
     args=parser.parse_args(argv)
     if args.output_dir.exists():
         raise ValueError('New private output directory required')
@@ -286,6 +315,8 @@ def main(argv=None):
         return p.read_bytes()
     refs=reference_scope(local['catalogue'],local['sources'],bundle['records'],read_bytes=read,
         publisher_hosts=args.publisher_host,include_nsqhs_names=not args.no_nsqhs_names)
+    if args.group_pdf_uris:
+        refs=group_pdf_uri_occurrences(refs)
     reps=representation_scope(bundle,args.capture_root)
     outputs={'references.json':refs,'representations.json':reps}
     args.output_dir.mkdir(mode=0o700)

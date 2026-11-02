@@ -73,3 +73,11 @@ URLs. An exact URL belonging to a retained capture or edition can identify its
 parent publication, provided that publication is present in the supplied catalogue.
 The result records the matching catalogue keys. It still does not establish the
 edition cited by a policy: a publisher can replace content at the same URL.
+
+For a compact review list, `group_pdf_uri_occurrences(scope)` (CLI:
+`--group-pdf-uris`) groups the same URI within one retained source representation.
+It retains every original occurrence key, page, line and offset in
+`annotationOccurrences`. Group counts and physical annotation counts are separate.
+Different artifacts, extraction hashes, source identities or inconsistent
+resolutions are never combined. Keep existing native reference identities; a
+previously saved atomic reference is sufficient only for its own recorded span.

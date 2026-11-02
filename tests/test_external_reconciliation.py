@@ -1,7 +1,7 @@
 import hashlib
 import unittest
 try:
-    from scripts.ppg_external_reconciliation import pdf_uri_inspection, reference_scope, representation_scope
+    from scripts.ppg_external_reconciliation import group_pdf_uri_occurrences, pdf_uri_inspection, reference_scope, representation_scope
 except ModuleNotFoundError as error:
     if error.name != 'bs4':
         raise
@@ -145,6 +145,20 @@ class ReferenceScopeTests(unittest.TestCase):
         self.assertEqual(o['page'],3);self.assertEqual(o['inspectionKind'],'pdf-uri-annotations')
         self.assertEqual(o['annotationOutputSHA256'],q['annotationOutputSHA256'])
         self.assertEqual(o['method'],'literal-PDF-URI-annotation');self.assertEqual(o['resolution'],'unresolved')
+
+    def test_annotation_grouping_preserves_every_physical_location(self):
+        s,p,files=self.setup_case();q=pdf_uri_inspection('Page Type URL\n1 Annotation https://publisher.example.org/x\n2 Annotation https://publisher.example.org/x',s['originalSHA256'])
+        s.update(text=q['text'],textSHA256=q['textSHA256'],inspectionKind=q['inspectionKind'],annotationOutputSHA256=q['annotationOutputSHA256']);files['text']=q['text'].encode()
+        r=reference_scope([{'DocumentUID':'fictional'}],[s],[],read_bytes=files.__getitem__,publisher_hosts=['publisher.example.org'],include_nsqhs_names=False)
+        grouped=group_pdf_uri_occurrences(r)
+        self.assertEqual(grouped['occurrenceCount'],1);self.assertEqual(grouped['annotationOccurrenceCount'],2)
+        self.assertEqual({x['key'] for x in grouped['occurrences'][0]['annotationOccurrences']},{x['key'] for x in r['occurrences']})
+        self.assertEqual([x['page'] for x in grouped['occurrences'][0]['annotationOccurrences']],[1,2])
+        import copy
+        bad=copy.deepcopy(r);bad['occurrences'][1]['versionConflict']=False
+        with self.assertRaises(ValueError):group_pdf_uri_occurrences(bad)
+        bad=copy.deepcopy(r);bad['occurrenceCount']=3
+        with self.assertRaises(ValueError):group_pdf_uri_occurrences(bad)
 
     def test_cli_manifest_is_create_only_and_binds_inputs(self):
         import tempfile,json,contextlib,io
