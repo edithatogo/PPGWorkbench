@@ -15,7 +15,7 @@ the new edition through **Open linked files**, follow its own **Submitted for
 review** case in the Review Queue, and confirm the earlier edition still opens
 with the same ID, version and hash. Keep the evidence with the deployment.
 
-Handle the 49 outstanding Registry links as files become available. For each
+Handle outstanding Registry links as files become available. For each
 confirmed document and edition, link it and open it from the matching record.
 Keep ambiguous candidates open in the existing private action list until the
 source or custodian resolves them. This is ongoing catalogue maintenance.
