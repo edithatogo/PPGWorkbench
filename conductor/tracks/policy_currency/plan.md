@@ -30,3 +30,16 @@ Implementation: [full-text review CLI](../../../docs/policy-currency-fulltext-re
 - [ ] PC-07b. Complete the remaining body/source coverage where same-identity originals or authoritative identifier reconciliation are unavailable. Preserve numeric/medicine conflicts and other-organisation lookalikes as holds.
 
 2 November continuation: SharePoint companion 1.4.0 ships the additive body ledger schema and CLI bootstrap. Production cloud definitions and solution 0.2.3.0 are unchanged. PC-06b/PC-07b remain incomplete; current private native receipts supersede earlier aggregate counts.
+
+
+PC-08 delivered, 2 November: expanded monthly PI bulletin captures into complete
+medicine-specific rows and applied explicit two-sided selections. Reassessed the
+384 unresolved leads using retained evidence; 28 additional candidate leads carry
+38 policy links. Native readback: 72 candidates, 356 unresolved, prior 44
+candidates and all human dispositions/source inputs preserved; unchanged replay
+requires zero writes. The 48 body holds remain unresolved (939 bound): their
+notes distinguish numeric/scope conflicts, missing qualified originals, missing
+adoption bindings and an unassigned template. Bounded discovery does not prove
+absence. Companion 1.4.1 adds the retained-table CLI; cloud solution and schedules
+are unchanged. Row extraction is preparation, not clinical review or automatic
+applicability. PC-06b/PC-07b remain incomplete. [Remaining PPG plans](../../../docs/ppg-remaining-work.md).

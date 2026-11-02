@@ -28,7 +28,7 @@ These are proposed increments. Each starts with a decision the team already need
 
 | Vertical and audience | Existing data and flow to reuse | First increment and measure of value |
 |---|---|---|
-| Policy currency for policy owners | Source Update Leads, Catalogue, Document Relationships and source reconciliation | Create a review view linking a source change to affected policies and owners. Measure the proportion of leads triaged with a recorded disposition. |
+| Policy currency for policy owners | Source Update Leads, Catalogue, Document Relationships and source reconciliation | Delivered: scheduled cloud matching, review view, owner links and disposition coverage. Full-content CLI review is available; remaining source/identity holds are explicit. Measure the proportion triaged with a recorded disposition. |
 | Review delivery for coordinators | Review Queue, role appointments, follow-up requests, digest previews and the monthly due report | Show overdue cases with the responsible role and next action. Measure overdue cases without an actionable owner. |
 | Accreditation readiness for evidence leads | Evidence Versions, Standards Mappings, Requirement Assessments and the standards check | Show proposed mappings with missing or superseded evidence, grouped by scheme. Measure unresolved evidence gaps without sharing judgements between schemes. |
 | Hospital context for service planners | Hospital Dataset Captures, Facilities, Current Metrics, Busyness Trends and the shared daily collector | Show capture freshness and missing facilities before presenting operational trends. Measure coverage against each response's declared total. |
