@@ -146,6 +146,20 @@ class ReferenceScopeTests(unittest.TestCase):
         self.assertEqual(o['annotationOutputSHA256'],q['annotationOutputSHA256'])
         self.assertEqual(o['method'],'literal-PDF-URI-annotation');self.assertEqual(o['resolution'],'unresolved')
 
+    def test_explicit_annotation_uri_is_not_trimmed_as_prose(self):
+        s,p,files=self.setup_case();base='https://publisher.example.org/guideline'
+        for suffix in ['.',';',')']:
+            q=pdf_uri_inspection('Page Type URL\n1 Annotation '+base+suffix,s['originalSHA256'])
+            s.update(text=q['text'],textSHA256=q['textSHA256'],inspectionKind=q['inspectionKind'],annotationOutputSHA256=q['annotationOutputSHA256']);files['text']=q['text'].encode()
+            records=[dict(kind='Publication',key='pub',assertions=[{'sourceURL':base}])]
+            r=reference_scope([{'DocumentUID':'fictional'}],[s],records,read_bytes=files.__getitem__,publisher_hosts=['publisher.example.org'],include_nsqhs_names=False)
+            self.assertEqual(r['resolutionCounts'],{'unresolved':1})
+            self.assertEqual(r['occurrences'][0]['literal'],base+suffix)
+            self.assertEqual(r['occurrences'][0]['urlMatchRecordKeys'],[])
+        empty=pdf_uri_inspection('Page Type URL','1'*64)
+        invalid=pdf_uri_inspection('Page Type URL\n1 Annotation mailto:fictional@example.org','1'*64)
+        self.assertEqual(empty['text'],invalid['text']);self.assertFalse(empty['text'].endswith('\n'))
+
     def test_annotation_grouping_preserves_every_physical_location(self):
         s,p,files=self.setup_case();q=pdf_uri_inspection('Page Type URL\n1 Annotation https://publisher.example.org/x\n2 Annotation https://publisher.example.org/x',s['originalSHA256'])
         s.update(text=q['text'],textSHA256=q['textSHA256'],inspectionKind=q['inspectionKind'],annotationOutputSHA256=q['annotationOutputSHA256']);files['text']=q['text'].encode()

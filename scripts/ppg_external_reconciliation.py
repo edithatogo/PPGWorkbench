@@ -65,7 +65,7 @@ def pdf_uri_inspection(annotation_output, original_sha256, *, decode_url_wrapper
                     pages[page].append('Encoded URL target ' + str(ordinal) + ': ' + values[0])
         entries.append(entry)
     rendered = ['PDF URI annotation inspection; not a body-text review.\nOriginal SHA256: ' + original_sha256]
-    for page in range(1, max(pages, default=1) + 1):
+    for page in range(1, max(pages, default=0) + 1):
         content = '\n'.join(pages.get(page, []))
         if page == 1:
             rendered[0] += '\n' + content
@@ -146,7 +146,7 @@ def reference_scope(catalogue, sources, publications, *, read_bytes,
             literal = m.group()
             is_url = literal.lower().startswith(('https://', 'http://'))
             locator = literal if is_url else None
-            if is_url and locator not in urls:
+            if is_url and locator not in urls and s.get('inspectionKind') != 'pdf-uri-annotations':
                 while True:
                     prior = locator
                     locator = locator.rstrip('.,;:')
