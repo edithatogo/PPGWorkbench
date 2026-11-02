@@ -44,7 +44,7 @@ The command adds missing entries by physical identity and verifies readback. Exi
 
 ## Release and deployment decision
 
-The production Power Platform solution is **0.2.3.0**. The reusable whole-product workflow installer is **1.0.4**. This SharePoint companion release is **1.4.0**. The application package contains 35 workflow definitions, five connection references and nine environment-variable definitions. The SharePoint register, page, PGY1 records, source captures and templates use separate provisioning and recovery contracts. Their version histories and deployment receipts belong with the solution release manifest.
+The production Power Platform solution is **0.2.3.0**. The reusable whole-product workflow installer is **1.0.4**. This SharePoint companion release is **1.4.1**. The application package contains 35 workflow definitions, five connection references and nine environment-variable definitions. The SharePoint register, page, PGY1 records, source captures and templates use separate provisioning and recovery contracts. Their version histories and deployment receipts belong with the solution release manifest.
 
 Compare both exports for ZIP integrity, solution identity, managed flag, workflow definitions, connection references and environment variables. Export packages can contain environment-specific bindings and stay private.
 

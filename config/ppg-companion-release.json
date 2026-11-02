@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "companionVersion": "1.4.0",
+  "companionVersion": "1.4.1",
   "productionSolutionVersion": "0.2.3.0",
   "wholeProductInstallerVersion": "1.0.4",
   "solutionInventory": {
@@ -22,7 +22,8 @@
       "fallbackSchedulerInstaller": "scripts/install_ppg_currency_job.py",
       "reportModule": "scripts/ppg_currency_report.mjs",
       "identity": "site, lead list and native item GUID",
-      "recovery": "reproject candidates using current catalogue and private previous receipt; preserve human dispositions"
+      "recovery": "reproject candidates using current catalogue and private previous receipt; preserve human dispositions",
+      "noticeSectionReview": "scripts/ppg_currency_notice_sections.py"
     },
     {
       "key": "dataset-directory",

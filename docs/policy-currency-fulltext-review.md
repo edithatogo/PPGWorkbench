@@ -99,3 +99,32 @@ node scripts/ppg_policy_body_ledger.mjs \
 An optional third argument binds the exact destination list ID. Existing field types
 and the view are read back; conflicting definitions are held for reconciliation.
 The command does not populate bindings, change register identifiers or enable flows.
+
+## Review medicine rows inside a bulletin
+
+A monthly PI bulletin title does not identify its medicines. Extract the complete
+publisher table from the retained original, then inspect each row alongside a
+qualified full policy body:
+
+```sh
+.venv/bin/python scripts/ppg_currency_notice_sections.py .local/notice.raw CAPTURE_SHA256 .local/notice-sections.json
+```
+
+The output preserves ingredient, brand/sponsor, complete changes and the raw
+approval date. It is a review worklist, not an automatic policy match. Keep the
+original capture and text hashes and use the existing two-sided review CLI for
+explicit selections. A bulletin can support several policy links without creating
+new source leads. Keep separate observations and their dates distinct.
+
+Compare route, formulation, dose, population, indication and warning scope. An
+inhaled preparation does not establish an intravenous match; an albumin-free
+vaccine is not albumin infusion; a combination-product warning may concern the
+other ingredient. Unknown compatibility remains explicit. The parser refuses
+changed captures, merged/nested tables and incomplete rows. Unsupported layouts
+require review rather than a guessed row mapping. Existing cloud matching and
+collection schedules remain unchanged; full-content selections use this CLI lane.
+
+The catalogue's unresolved body records retain specific hold categories:
+missing qualified original, numeric identifier conflict, clinical-scope conflict,
+missing local adoption/publisher binding, or unassigned template identity. A
+permission-trimmed search is bounded discovery and never proves source absence.
