@@ -564,6 +564,7 @@
     "tests/test_pilot_guide.py",
     "tests/test_pmaq_portability.py",
     "tests/test_policy_body_identity.py",
+    "tests/test_policy_body_ledger.cjs",
     "tests/test_policy_editions_maintenance.cjs",
     "tests/test_policy_evidence_guard.cjs",
     "tests/test_portfolio_transfer.py",

@@ -24,8 +24,11 @@ class PolicyBodyIdentityTests(unittest.TestCase):
         self.assertIn("not established", result["editionRelation"])
 
     def test_title_only_and_body_reference_do_not_bind(self):
-        doc = self.body("Amber Pump Operation\n" + "A generic instruction. " * 100 + self.doc["text"])
-        self.assertEqual(qualify_body(self.policy, doc)["status"], "held")
+        for text in ("Amber Pump Operation\n" + "A generic instruction. " * 20,
+                     "Amber Pump Operation\nPurpose\nRelated document:\n" + self.doc["text"],
+                     "Amber Pump Operation\n" + "A generic instruction. " * 100 + self.doc["text"]):
+            with self.subTest(text=text[:50]):
+                self.assertEqual(qualify_body(self.policy, self.body(text))["status"], "held")
 
     def test_native_uid_and_heading_can_bind_missing_printed_code(self):
         doc = self.body("Amber Pump Operation\n" + "Inspect the amber pump. " * 15)
@@ -80,12 +83,14 @@ class PolicyBodyIdentityTests(unittest.TestCase):
         self.assertEqual(result["memberSHA256"], hashlib.sha256(b"fictional original").hexdigest())
 
     def test_multiple_versions_and_unsafe_member_are_not_silently_selected(self):
-        for names in (("one.doc", "two.doc"), ("../original.doc",)):
+        for names in (("one.doc", "two.doc"), ("../original.doc",), ("..\\original.doc",)):
             with self.subTest(names=names):
                 stream = io.BytesIO()
                 with zipfile.ZipFile(stream, "w") as package:
                     for name in names:
                         package.writestr(name, b"fictional")
+                with zipfile.ZipFile(io.BytesIO(stream.getvalue())) as package:
+                    self.assertEqual(package.namelist(), list(names))
                 with self.assertRaises(ValueError):
                     unpack_single_document(stream.getvalue())
 

@@ -52,7 +52,7 @@ def number(value):
 
 def printed_headers(text):
     lines = re.findall(r"Document\s*(?:Number|No\.?|ID)\s*[:.]?\s*<?\s*([A-Za-z][^\r\n]{1,160})",
-                       text[:1800], re.I)
+                       heading_text(text), re.I)
     return [code for line in lines for code in aliases(line)]
 
 
