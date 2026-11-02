@@ -52,7 +52,7 @@ def number(value):
 
 def printed_headers(text):
     lines = re.findall(r"Document\s*(?:Number|No\.?|ID)\s*[:.]?\s*<?\s*([A-Za-z][^\r\n]{1,160})",
-                       heading_text(text), re.I)
+                       heading_text(text) or text[:1800], re.I)
     return [code for line in lines for code in aliases(line)]
 
 
@@ -64,8 +64,8 @@ def heading_words(text):
 
 def heading_text(text):
     prefix = text[:1800]
-    marker = re.search(r"(?im)^\s*(?:Purpose|Scope|AREA\s*/\s*STAFF|Authority to administer|Presentation|Policy Statement|Intent of this policy)\b", prefix)
-    return prefix[:marker.start()] if marker else prefix
+    marker = re.search(r"(?im)^\s*(?:Purpose|Scope|Introduction|Background|AREA\s*/\s*STAFF|Authority to administer|Presentation|Policy Statement|Intent of this policy)\b", prefix)
+    return prefix[:marker.start()] if marker else None
 
 
 def qualify_body(policy, document, *, native_uid=None, variant=None, title_review=None):
@@ -88,13 +88,20 @@ def qualify_body(policy, document, *, native_uid=None, variant=None, title_revie
     printed = printed_headers(text)
     title = heading_words(policy.get("sourceTitle", ""))
     heading = heading_text(text)
-    shared = title & heading_words(heading)
-    heading_ok = bool(title) and len(shared) >= min(2, len(title)) and len(shared) / len(title) >= .5
+    shared = title & heading_words(heading or "")
+    heading_ok = bool(heading and title) and len(shared) >= min(2, len(title)) and len(shared) / len(title) >= .5
     if title_review:
         anchor = title_review.get("anchor", "")
+        reviewed_heading = heading or text[:1800]
+        if "headingStart" in title_review or "headingEnd" in title_review:
+            start, end = title_review.get("headingStart"), title_review.get("headingEnd")
+            if not (type(start) is int and type(end) is int and 0 <= start < end <= len(text)
+                    and end - start <= 1800):
+                raise ValueError("Reviewed heading range invalid")
+            reviewed_heading = text[start:end]
         heading_ok = (title_review.get("sha256") == document["sha256"] and
                       bool(title_review.get("reason")) and len(anchor) >= 8 and
-                      " ".join(anchor.casefold().split()) in " ".join(heading.casefold().split()))
+                      " ".join(anchor.casefold().split()) in " ".join(reviewed_heading.casefold().split()))
     if not heading_ok:
         return {"status": "held", "reason": "Heading/clinical scope not qualified"}
     same_family = any(number(e) and number(e) == number(p) and family(e) == family(p)

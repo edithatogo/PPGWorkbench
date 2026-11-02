@@ -9,7 +9,7 @@ class PolicyBodyIdentityTests(unittest.TestCase):
     def setUp(self):
         self.policy = {"DocumentUID": "fictional-uid", "sourceDocumentId": "ORG-Clin-Proc-Pump-42-V3-06/28",
                        "sourceTitle": "Amber Pump Operation"}
-        self.doc = self.body("Document Number ORG-Clin-Proc-Pump-42-V2-05/26\nAmber Pump Operation\n" +
+        self.doc = self.body("Document Number ORG-Clin-Proc-Pump-42-V2-05/26\nAmber Pump Operation\nPurpose\n" +
                              "Inspect the amber pump before use. " * 8)
 
     @staticmethod
@@ -31,7 +31,7 @@ class PolicyBodyIdentityTests(unittest.TestCase):
                 self.assertEqual(qualify_body(self.policy, self.body(text))["status"], "held")
 
     def test_native_uid_and_heading_can_bind_missing_printed_code(self):
-        doc = self.body("Amber Pump Operation\n" + "Inspect the amber pump. " * 15)
+        doc = self.body("Amber Pump Operation\nPurpose\n" + "Inspect the amber pump. " * 15)
         self.assertEqual(qualify_body(self.policy, doc, native_uid="fictional-uid")["status"], "retained-body-bound")
         with self.assertRaises(ValueError):
             qualify_body(self.policy, doc, native_uid="other-uid")
@@ -72,6 +72,33 @@ class PolicyBodyIdentityTests(unittest.TestCase):
                         "Drug Infusion Guideline - Othermedicine\nPresentation\n"
                         "Ambermedicine is mentioned as an interaction. " * 8)
         self.assertEqual(qualify_body(self.policy, doc, native_uid="fictional-uid")["status"], "held")
+
+    def test_unknown_heading_boundary_requires_capture_pinned_review(self):
+        self.doc = self.body(self.doc["text"].replace("Purpose\n", ""))
+        self.assertEqual(qualify_body(self.policy, self.doc)["status"], "held")
+        review = {"anchor": "Amber Pump Operation", "sha256": self.doc["sha256"],
+                  "reason": "Primary heading inspected in retained original"}
+        self.assertEqual(qualify_body(self.policy, self.doc, title_review=review)["status"], "retained-body-bound")
+        self.policy["sourceTitle"] = "Drug Infusion Guideline Ambermedicine"
+        doc = self.body("Document Number ORG-Clin-Proc-Pump-42-V2-05/26\n"
+                        "Drug Infusion Guideline Othermedicine\nIntroduction\n" +
+                        "Ambermedicine appears only in body discussion. " * 8)
+        self.assertEqual(qualify_body(self.policy, doc)["status"], "held")
+
+    def test_explicit_reviewed_header_range_handles_extraction_order(self):
+        doc = self.body("Unrelated extracted body. " * 100 + self.doc["text"])
+        start = doc["text"].index("Document Number")
+        review = {"anchor": "Amber Pump Operation", "sha256": doc["sha256"],
+                  "reason": "Original header extracted after body; inspected exact range",
+                  "headingStart": start, "headingEnd": start + 80}
+        self.assertEqual(qualify_body(self.policy, doc, native_uid="fictional-uid",
+                                     title_review=review)["status"], "retained-body-bound")
+        review["sha256"] = "b" * 64
+        self.assertEqual(qualify_body(self.policy, doc, native_uid="fictional-uid",
+                                     title_review=review)["status"], "held")
+        review["headingEnd"] = len(doc["text"]) + 1
+        with self.assertRaises(ValueError):
+            qualify_body(self.policy, doc, native_uid="fictional-uid", title_review=review)
 
     def test_wrapped_original_retains_both_hashes(self):
         stream = io.BytesIO()

@@ -27,15 +27,17 @@ for (const f of definitions) {
 }
 const title = "Policy body identities";
 const columns = ["LinkTitle", "DocumentUID", "sourceDocumentId", "BodyIdentityState", "BodyIdentityEvidence", "BodyIdentityJSON"];
+const query = '<GroupBy Collapse="TRUE"><FieldRef Name="BodyIdentityState"/></GroupBy><OrderBy><FieldRef Name="Title"/></OrderBy>';
 if (!(await c.all(base + "/views?$select=Title")).some(v => v.Title === title)) {
   await send("body-ledger-bootstrap-view", base + "/views/add", {parameters: {
     Title: title, ViewFields: columns, PersonalView: false, SetAsDefaultView: false,
     Paged: true, RowLimit: 100,
-    Query: '<GroupBy Collapse="TRUE"><FieldRef Name="BodyIdentityState"/></GroupBy><OrderBy><FieldRef Name="Title"/></OrderBy>'}});
+    Query: query}});
 }
 const view = base + "/views/getbytitle('Policy body identities')";
 const saved = await c.get(view), actual = (await c.get(view + "/ViewFields")).Items;
-if (!columns.every(f => actual.includes(f)) || !saved.ViewQuery.includes('Name="BodyIdentityState"')) {
+const canonicalQuery = value => (value || "").replace(/>\s+</g, "><").replace(/\s+\/>/g, "/>").trim();
+if (!columns.every(f => actual.includes(f)) || canonicalQuery(saved.ViewQuery) !== canonicalQuery(query)) {
   throw Error("Ledger view differs; preserve existing view for reconciliation");
 }
 const finalFields = await c.all(base + "/fields?$select=InternalName,TypeAsString");
